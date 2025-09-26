@@ -4,7 +4,6 @@ plugins {
   id 'java'
 }
 
-
 group = 'pt.psoft.g1'
 version = '0.0.1-SNAPSHOT'
 description = 'Demo project for Spring Boot'
@@ -50,5 +49,10 @@ dependencies {
     // Tests
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.10.2'
     // (Inutile d’ajouter junit:junit explicitement ; Spring Boot 3 utilise JUnit Jupiter)
 }
+
+tasks.named('test') { useJUnitPlatform() }
