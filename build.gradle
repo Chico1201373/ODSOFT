@@ -1,7 +1,8 @@
 plugins {
-  id 'org.springframework.boot' version '3.5.0'
-  id 'io.spring.dependency-management' version '1.1.5'
+  id 'org.springframework.boot' version '3.2.5'
+  id 'io.spring.dependency-management' version '1.1.4'
   id 'java'
+  id 'jacoco'
 }
 
 group = 'pt.psoft.g1'
@@ -12,6 +13,13 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
     }
+}
+
+test {
+    finalizedBy jacocoTestReport // report is always generated after tests run
+}
+jacocoTestReport {
+    dependsOn test // tests are required to run before generating the report
 }
 
 repositories {
@@ -62,6 +70,8 @@ tasks.withType(Javadoc) {
     failOnError = false
 }
 tasks.register('generateJavadoc', Javadoc) {
+    group = 'Documentation'
+    description = 'Generates Javadoc API documentation.'
     source = sourceSets.main.allJava
     classpath = sourceSets.main.compileClasspath
     destinationDir = file("$buildDir/docs/javadoc")
