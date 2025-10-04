@@ -7,9 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 class PsoftG1ApplicationTests {
-
 	@Test
 	void contextLoads() {
+		System.out.print("Start Test");
 		assertTrue(true);
 	}
 

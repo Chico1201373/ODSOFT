@@ -7,6 +7,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class PsoftG1Application {
 
 	public static void main(String[] args) {
+				System.out.print("Start App");
+
 		SpringApplication.run(PsoftG1Application.class, args);
 	}
 

@@ -1,0 +1,27 @@
+services:
+  books-api:
+    image: odsoft
+    build: .
+    container_name: books-api
+    ports:
+      - "8080:8080"
+    networks:
+      - test-network
+    restart: unless-stopped
+
+  k6-odsoft:
+    # May need to uncomment and use the following line
+    platform: "linux/amd64"
+    image: loadimpact/k6
+    container_name: k6-odsoft
+    volumes:
+      - ./tests:/tests
+    networks:
+      - test-network
+    entrypoint: ["tail", "-f", "/dev/null"] # Keeps the container running for executing tests
+    depends_on:
+      - books-api
+
+networks:
+  test-network:
+    driver: bridge
