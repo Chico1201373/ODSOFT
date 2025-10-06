@@ -12,7 +12,7 @@ services:
   k6-odsoft:
     # May need to uncomment and use the following line
     platform: "linux/amd64"
-    image: loadimpact/k6
+    image: grafana/k6:latest
     container_name: k6-odsoft
     volumes:
       - ./tests:/tests
