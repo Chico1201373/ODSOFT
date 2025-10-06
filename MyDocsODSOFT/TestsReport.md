@@ -29,7 +29,7 @@ stages: [
   { duration: "10s", target: 0 },  // ramp down
 ]
 thresholds: {
-  http_req_failed: ["rate<0.3"],      // <30% requests can fail
+  http_req_failed: ["rate<0.01"],      // <1% requests can fail
   http_req_duration: ["p(95)<600"],   // 95% of requests under 600ms
 }
 ```
