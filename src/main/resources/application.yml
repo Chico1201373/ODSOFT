@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: library-service
+  jackson:
+    serialization:
+      INDENT_OUTPUT: true
+server:
+  port: 8080   # container port, same for all environments
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"  # allow actuator endpoints
+  
+
+
+  

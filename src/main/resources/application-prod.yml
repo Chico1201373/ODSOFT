@@ -1,0 +1,19 @@
+spring:
+  profiles: prod
+  datasource:
+    url: jdbc:postgresql://db:5432/library
+    username: library
+    password: prod_password
+  jpa:
+    hibernate:
+      ddl-auto: validate  # do not modify DB schema
+logging:
+  level:
+    root: WARN
+  file:
+    name: /var/log/library-service/library-service.log
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

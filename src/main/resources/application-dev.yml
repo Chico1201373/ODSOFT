@@ -1,0 +1,12 @@
+spring:
+  profiles: dev
+  datasource:
+    url: jdbc:postgresql://db:5432/library_dev
+    username: library
+    password: library
+  jpa:
+    hibernate:
+      ddl-auto: update  # automatically create/update tables
+logging:
+  level:
+    root: DEBUG
