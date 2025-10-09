@@ -33,12 +33,13 @@ pipeline {
     }
 
     stage('Static Analysis') {
-      steps {
-        withEnv(["SONAR_HOST_URL=${SONAR_HOST}"]) {
-          sh "mvn sonar:sonar -Dsonar.host.url=${SONAR_HOST} -Dsonar.login=${SONAR_TOKEN}"
-        }
-      }
+  steps {
+    withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+      sh "mvn sonar:sonar -Dsonar.host.url=${SONAR_HOST} -Dsonar.login=${SONAR_TOKEN}"
     }
+  }
+}
+
 
     stage('Unit Tests') {
       steps {
