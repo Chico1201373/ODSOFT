@@ -5,7 +5,7 @@ pipeline {
     APP_NAME   = "books-api"
     IMAGE_NAME = "odsoft/books-api"
     TAG        = "${env.GIT_COMMIT ?: 'local'}"
-    SONAR_HOST = "http://sonarqube:9000"
+    SONAR_HOST = "http://localhost:9000" 
   }
 
   options {
