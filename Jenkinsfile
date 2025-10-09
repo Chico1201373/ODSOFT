@@ -27,9 +27,19 @@ pipeline {
       }
       post {
         success {
-          archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+          archiveArtifacts artifacts: 'target/*.jar', fingerprint: false
         }
       }
+      post {
+      always {
+            jacoco(
+                execPattern: '**/target/jacoco.exec',
+                classPattern: '**/target/classes',
+                sourcePattern: '**/src/main/java',
+                exclusionPattern: ''
+            )
+        }
+}
     }
 
     stage('Static Analysis') {
