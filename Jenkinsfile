@@ -5,7 +5,11 @@ pipeline {
     APP_NAME   = "books-api"
     IMAGE_NAME = "odsoft/books-api"
     TAG        = "${env.GIT_COMMIT ?: 'local'}"
-    SONAR_HOST = "http://localhost:9000" 
+    SONAR_HOST = "http://localhost:9000"
+    SONARQUBE_ENV = 'MySonarServer'
+    SONAR_TOKEN = credentials('SONAR_TOKEN')
+
+    
   }
 
   options {
@@ -27,7 +31,7 @@ pipeline {
     }
     post {
         success {
-            archiveArtifacts artifacts: 'target/*.jar', fingerprint: false
+            archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
         }
         always {
             jacoco(
@@ -39,6 +43,20 @@ pipeline {
         }
     }
 }
+
+stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('MySonarServer') {
+                    sh '''
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=ODSOFT \
+                          -Dsonar.host.url=$SONAR_HOST_URL \
+                          -Dsonar.login=$SONAR_TOKEN \
+                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                    '''
+                }
+            }
+        }
 
 
     stage('Static Analysis') {
