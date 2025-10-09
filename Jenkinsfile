@@ -42,16 +42,16 @@ pipeline {
 
 
     stage('Unit Tests') {
-      steps {
-        sh "mvn -B test"
-      }
-      post {
-        always {
-          junit 'target/surefire-reports/*.xml'
-          jacoco execPattern: 'target/jacoco.exec', classPattern: 'target/classes', sourcePattern: 'src/main/java'
-        }
-      }
+    steps {
+        sh "mvn -B test" 
+        sh "ls -l target/surefire-reports/"
     }
+    post {
+        always {
+            junit 'target/surefire-reports/*.xml'
+        }
+    }
+}
 
     stage('Mutation Tests (PITest)') {
       steps {
