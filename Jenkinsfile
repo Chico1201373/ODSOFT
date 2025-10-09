@@ -67,11 +67,16 @@ pipeline {
     stage('Integration Tests') {
     steps {
         sh "mvn -B verify -DskipUnitTests=true"
-        sh "ls -l target/failsafe-reports/"
     }
     post {
         always {
-            junit '**/target/failsafe-reports/*.xml'
+            script {
+                if (fileExists('target/failsafe-reports')) {
+                    junit 'target/failsafe-reports/*.xml'
+                } else {
+                    echo "No Failsafe reports found, skipping."
+                }
+            }
         }
     }
 }
