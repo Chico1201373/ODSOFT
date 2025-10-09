@@ -22,16 +22,14 @@ pipeline {
     }
 
     stage('Build & Compile') {
-      steps {
+    steps {
         sh "mvn -B -DskipTests clean package"
-      }
-      post {
+    }
+    post {
         success {
-          archiveArtifacts artifacts: 'target/*.jar', fingerprint: false
+            archiveArtifacts artifacts: 'target/*.jar', fingerprint: false
         }
-      }
-      post {
-      always {
+        always {
             jacoco(
                 execPattern: '**/target/jacoco.exec',
                 classPattern: '**/target/classes',
@@ -39,8 +37,9 @@ pipeline {
                 exclusionPattern: ''
             )
         }
-}
     }
+}
+
 
     stage('Static Analysis') {
   steps {
