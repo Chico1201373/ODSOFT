@@ -1,31 +1,39 @@
 pipeline {
   agent any
+
   environment {
-    APP_NAME = "books-api"
+    APP_NAME   = "books-api"
     IMAGE_NAME = "odsoft/books-api"
-    TAG = "${env.GIT_COMMIT ?: 'local'}"
+    TAG        = "${env.GIT_COMMIT ?: 'local'}"
     SONAR_HOST = "http://sonarqube:9000"
   }
+
   options {
     timestamps()
     buildDiscarder(logRotator(daysToKeepStr: '14'))
   }
+
   stages {
+
     stage('Checkout') {
-      steps { checkout scm }
+      steps {
+        checkout scm
+      }
     }
 
     stage('Build & Compile') {
       steps {
-        // Maven example
         sh "mvn -B -DskipTests clean package"
       }
-      post { success { archiveArtifacts artifacts: 'target/*.jar', fingerprint: true } }
+      post {
+        success {
+          archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+        }
+      }
     }
 
     stage('Static Analysis') {
       steps {
-        // run Sonar scanner
         withEnv(["SONAR_HOST_URL=${SONAR_HOST}"]) {
           sh "mvn sonar:sonar -Dsonar.host.url=${SONAR_HOST} -Dsonar.login=${SONAR_TOKEN}"
         }
@@ -34,7 +42,7 @@ pipeline {
 
     stage('Unit Tests') {
       steps {
-        sh "mvn -B -DskipITs=false -DskipITs=false test"
+        sh "mvn -B test"
       }
       post {
         always {
@@ -46,11 +54,10 @@ pipeline {
 
     stage('Mutation Tests (PITest)') {
       steps {
-        sh "mvn -DskipTests -DskipITs org.pitest:pitest-maven:mutationCoverage"
+        sh "mvn org.pitest:pitest-maven:mutationCoverage"
       }
       post {
         always {
-          // publish PIT HTML artifact (target/pit-reports)
           archiveArtifacts artifacts: 'target/pit-reports/**', fingerprint: true
         }
       }
@@ -58,8 +65,7 @@ pipeline {
 
     stage('Integration Tests') {
       steps {
-        // Failsafe runs integration tests (mvn verify)
-        sh "mvn -B -DskipTests=false -DskipITs=false verify"
+        sh "mvn -B verify -DskipUnitTests=true"
       }
       post {
         always {
@@ -75,11 +81,15 @@ pipeline {
     }
 
     stage('Push Image') {
-      when { expression { env.BRANCH_NAME == 'main' } }
+      when {
+        expression { env.BRANCH_NAME == 'main' }
+      }
       steps {
         withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-          sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
-          sh "docker push ${IMAGE_NAME}:${TAG}"
+          sh """
+            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+            docker push ${IMAGE_NAME}:${TAG}
+          """
         }
       }
     }
@@ -88,9 +98,7 @@ pipeline {
       when { branch 'develop' }
       steps {
         sh """
-          # Exemplo: atualizar compose dev
           export IMAGE_TAG=${TAG}
-          docker-compose -f docker-compose.dev.yml pull ${IMAGE_NAME} || true
           docker-compose -f docker-compose.dev.yml up -d --build
         """
       }
@@ -98,15 +106,16 @@ pipeline {
 
     stage('Functional/System Tests') {
       steps {
-        // exemplo: Karate or Postman Newman or k6
-        sh "mvn -DskipTests=false -Dkarate.env=dev test -Dkarate.options='--tags @smoke'"
+        sh "mvn -Dkarate.env=dev test -Dkarate.options='--tags @smoke'"
       }
     }
 
     stage('Promote to Staging/Prod') {
       when { branch 'main' }
-      input message: "Promote to staging?"
       steps {
+        script {
+          input(message: "Promote to staging?")
+        }
         sh "docker-compose -f docker-compose.staging.yml up -d --build"
       }
     }
@@ -117,10 +126,13 @@ pipeline {
       archiveArtifacts artifacts: 'target/*.jar, target/*.war', allowEmptyArchive: true
     }
     success {
-      echo "Pipeline succeeded"
+      echo "✅ Pipeline succeeded!"
     }
     failure {
-      mail to: 'team@example.com', subject: "Build failed: ${env.JOB_NAME} ${env.BUILD_NUMBER}", body: "See Jenkins"
+      mail to: '1201373@isep.ipp.pt',
+           subject: "❌ Build failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+           body: "See Jenkins logs for details: ${env.BUILD_URL}"
     }
   }
 }
+// 
