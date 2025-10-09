@@ -43,15 +43,15 @@ pipeline {
 
     stage('Unit Tests') {
     steps {
-        sh "mvn -B test" 
-        sh "ls -l target/surefire-reports/"
+        sh "mvn -B test"
+        sh "ls -l target/surefire-reports/" 
     }
     post {
         always {
-            junit 'target/surefire-reports/*.xml'
+            junit '**/target/surefire-reports/*.xml' 
         }
     }
-}
+    }
 
     stage('Mutation Tests (PITest)') {
       steps {
@@ -65,16 +65,16 @@ pipeline {
     }
 
     stage('Integration Tests') {
-      steps {
+    steps {
         sh "mvn -B verify -DskipUnitTests=true"
-      }
-      post {
-        always {
-          junit 'target/failsafe-reports/*.xml'
-        }
-      }
+        sh "ls -l target/failsafe-reports/"
     }
-
+    post {
+        always {
+            junit '**/target/failsafe-reports/*.xml'
+        }
+    }
+}
     stage('Build Docker Image') {
       steps {
         sh "docker build -t ${IMAGE_NAME}:${TAG} ."
