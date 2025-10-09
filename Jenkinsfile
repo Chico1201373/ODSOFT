@@ -129,10 +129,8 @@ pipeline {
       echo "✅ Pipeline succeeded!"
     }
     failure {
-      mail to: '1201373@isep.ipp.pt',
-           subject: "❌ Build failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-           body: "See Jenkins logs for details: ${env.BUILD_URL}"
-    }
+  echo "Build failed — email disabled (no SMTP configured)"
+  }
   }
 }
 // 

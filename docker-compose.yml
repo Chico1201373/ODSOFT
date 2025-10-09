@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   books-api:
     image: odsoft
@@ -10,7 +12,6 @@ services:
     restart: unless-stopped
 
   k6-odsoft:
-    # May need to uncomment and use the following line
     platform: "linux/amd64"
     image: grafana/k6:latest
     container_name: k6-odsoft
@@ -27,11 +28,25 @@ services:
     container_name: jenkins
     user: root
     ports:
-      - "8082:8080"   # <-- Jenkins intern 8080, outsude 8082
-      - "50000:50000" # <-- comunication between Jenkins
+      - "8082:8080"   # Jenkins interno 8080 → externo 8082
+      - "50000:50000" # comunicação entre Jenkins agents
     volumes:
       - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock # opcional: se quiser que o Jenkins controle o Docker
+      - /var/run/docker.sock:/var/run/docker.sock # permite Jenkins usar Docker host
+    networks:
+      - test-network
+    restart: unless-stopped
+
+  sonarqube:
+    image: sonarqube:latest
+    container_name: sonarqube
+    ports:
+      - "9000:9000" # acesso via http://localhost:9000
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
     networks:
       - test-network
     restart: unless-stopped
@@ -39,5 +54,8 @@ services:
 networks:
   test-network:
     driver: bridge
+
 volumes:
   jenkins_home:
+  sonarqube_data:
+  sonarqube_extensions:
