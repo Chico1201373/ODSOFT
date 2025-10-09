@@ -27,9 +27,11 @@ export const options = {
     { duration: "10s", target: 0 }, // ramp down
   ],
   thresholds: {
-    http_req_failed: ["rate<0.01"], // <0.1% failures
-    http_req_duration: ["p(95)<600"], // 95% requests under 600ms
-  },
+  http_req_failed: ["rate<0.01"],
+  http_req_duration: ["p(95)<600"],
+  "checks{type:login_success}": ["rate>0.95"],
+  "checks{type:book_success}": ["rate>0.95"],
+}
 };
 
 // ======================================
@@ -44,23 +46,26 @@ export default function () {
   });
 
 const loginRes = http.post(
-  "http://books-api:8080/api/public/login",
+  "http://books-api:8081/api/public/login",
   loginPayload,
-  { headers: { "Content-Type": "application/json" } }
+  { headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    } }
 );
 
-  // Quality checks for login
-  const loginOK = check(loginRes, {
-    "POST /login - Valid User Login Succeeds Status 200 ": (r) => r.status === 200 ,
-    "POST /login - Contains Token": (r) => r.headers.Authorization,
-   });
-
+  const loginChecks = check(loginRes, {
+    "POST /login - Success 200": (r) => r.status === 200,
+    "POST /login - Failed (401 Unauthorized)": (r) => r.status === 401,
+    "POST /login - Contains Token": (r) =>
+      r.status === 200 && r.headers.Authorization,
+  });
    
 
   // Extract token for authenticated requests
   const token = loginRes.headers["Authorization"];
 
-  if (!loginOK || !token) {
+  if (loginRes.status !== 200 || !token) {
     sleep(1);
     return;
   }
@@ -70,7 +75,7 @@ const loginRes = http.post(
   // --- GET /books?genre= test ---
   const book = books[Math.floor(Math.random() * books.length)];
   const genre = encodeURIComponent(book.genre);
-  const getRes = http.get(`http://books-api:8080/api/books?genre=${genre}`, {
+  const getRes = http.get(`http://books-api:8081/api/books?genre=${genre}`, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
@@ -92,6 +97,6 @@ const loginRes = http.post(
 // ======================================
 export function handleSummary(data) {
   return {
-    "/tests/1summary.html": htmlReport(data),
+    "/tests/summary.html": htmlReport(data),
   };
 }
