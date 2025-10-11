@@ -115,7 +115,7 @@ stage('SonarQube Analysis') {
     script {
       echo "Pushing image: ${IMAGE_NAME}:${TAG}"
     }
-    withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+    {
       sh """
         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
         docker images | grep ${IMAGE_NAME} || echo "Image not found!"
