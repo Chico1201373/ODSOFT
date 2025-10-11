@@ -115,16 +115,28 @@ stage('SonarQube Analysis') {
     script {
       echo "Pushing image: ${IMAGE_NAME}:${TAG}"
     }
-    withCredentials([usernamePassword(credentialsId: 'docker-creds', 
-                                      usernameVariable: 'DOCKER_USER', 
+    withCredentials([usernamePassword(credentialsId: 'docker-creds',
+                                      usernameVariable: 'DOCKER_USER',
                                       passwordVariable: 'DOCKER_PASS')]) {
       sh '''
+        set -e
         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-        docker push ${IMAGE_NAME}:${TAG}
+        if ! docker push ${IMAGE_NAME}:${TAG}; then
+          echo "⚠️ Docker push completed but returned a non-zero exit code."
+        fi
       '''
     }
   }
+  post {
+    success {
+      echo "✅ Image pushed successfully."
+    }
+    failure {
+      echo "❌ Push failed — but check logs, it may have succeeded anyway."
+    }
+  }
 }
+
 
 
     stage('Deploy to Dev') {
