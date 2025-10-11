@@ -22,6 +22,11 @@ services:
     entrypoint: ["tail", "-f", "/dev/null"] # Keeps the container running for executing tests
     depends_on:
       - books-api
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8g
 
   jenkins:
     image: jenkins/jenkins:lts
