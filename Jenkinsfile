@@ -109,21 +109,23 @@ stage('SonarQube Analysis') {
 
     stage('Push Image') {
   when {
-    expression { env.BRANCH_NAME == 'main' }
+    branch 'main'
   }
   steps {
     script {
       echo "Pushing image: ${IMAGE_NAME}:${TAG}"
     }
-    {
-      sh """
+    withCredentials([usernamePassword(credentialsId: 'docker-creds', 
+                                      usernameVariable: 'DOCKER_USER', 
+                                      passwordVariable: 'DOCKER_PASS')]) {
+      sh '''
         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-        docker images | grep ${IMAGE_NAME} || echo "Image not found!"
         docker push ${IMAGE_NAME}:${TAG}
-      """
+      '''
     }
   }
 }
+
 
     stage('Deploy to Dev') {
       when { branch 'develop' }
