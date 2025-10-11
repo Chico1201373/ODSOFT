@@ -108,18 +108,22 @@ stage('SonarQube Analysis') {
     }
 
     stage('Push Image') {
-      when {
-        expression { env.BRANCH_NAME == 'main' }
-      }
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-          sh """
-            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-            docker push ${IMAGE_NAME}:${TAG}
-          """
-        }
-      }
+  when {
+    expression { env.BRANCH_NAME == 'main' }
+  }
+  steps {
+    script {
+      echo "Pushing image: ${IMAGE_NAME}:${TAG}"
     }
+    withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+      sh """
+        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+        docker images | grep ${IMAGE_NAME} || echo "Image not found!"
+        docker push ${IMAGE_NAME}:${TAG}
+      """
+    }
+  }
+}
 
     stage('Deploy to Dev') {
       when { branch 'develop' }
@@ -156,7 +160,7 @@ stage('SonarQube Analysis') {
       echo "✅ Pipeline succeeded!"
     }
     failure {
-  echo "Build failed — email disabled (no SMTP configured)"
+      echo "❌ Build failed"
   }
   }
 }
