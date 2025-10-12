@@ -27,25 +27,18 @@ pipeline {
       }
     }
 
-    stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('MySonarServer') {
-                    sh '''
-                        mvn sonar:sonar \
-                          -Dsonar.projectKey=ODSOFT \
-                          -Dsonar.host.url=$SONAR_HOST_URL \
-                          -Dsonar.login=$SONAR_TOKEN \
-                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-                    '''
-                }
-            }
-        }
-
-
-    stage('Static Analysis') {
+    stage('Static Code Analysis (SonarQube)') {
   steps {
-    withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-      sh "mvn sonar:sonar -Dsonar.host.url=${SONAR_HOST} -Dsonar.login=${SONAR_TOKEN}"
+    withSonarQubeEnv('MySonarServer') {
+      withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+        sh '''
+          mvn sonar:sonar \
+            -Dsonar.projectKey=ODSOFT \
+            -Dsonar.host.url=$SONAR_HOST_URL \
+            -Dsonar.login=$SONAR_TOKEN \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+        '''
+      }
     }
   }
 }
