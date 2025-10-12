@@ -32,13 +32,19 @@ pipeline {
       }
     }
 
-    stage('Static Analysis') {
-      steps {
-        withSonarQubeEnv('MySonarServer') {
-          sh "mvn sonar:sonar -Dsonar.login=${SONAR_TOKEN}"
+    stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('MySonarServer') {
+                    sh '''
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=ODSOFT \
+                          -Dsonar.host.url=$SONAR_HOST_URL \
+                          -Dsonar.login=$SONAR_TOKEN \
+                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                    '''
+                }
+            }
         }
-      }
-    }
 
     stage('Integration Tests') {
       steps {
