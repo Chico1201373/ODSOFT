@@ -69,23 +69,28 @@ pipeline {
       }
     }
 
-    stage('Push Docker Image') {
-      when {
+  
+ stage('Push Image') {
+  when {
         anyOf {
           branch 'staging'
           branch 'main'
         }
       }
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'docker-creds',
-                                          usernameVariable: 'DOCKER_USER',
-                                          passwordVariable: 'DOCKER_PASS')]) {
-          sh '''
-            docker push ${IMAGE_NAME} 
-          '''
-        }
-      }
+  steps {
+    script {
+      echo "Pushing image: ${IMAGE_NAME}:${TAG}"
     }
+    withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+      sh """
+        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+        docker images | grep ${IMAGE_NAME} || echo "Image not found!"
+        docker push ${IMAGE_NAME}:${TAG}
+      """
+    }
+  }
+}
+
 
     stage('Deploy to Dev') {
       when { branch 'develop' }
