@@ -46,9 +46,15 @@ pipeline {
       }
       post {
         always {
-          junit 'target/failsafe-reports/*.xml'
+            script {
+                if (fileExists('target/failsafe-reports')) {
+                    junit 'target/failsafe-reports/*.xml'
+                } else {
+                    echo "No Failsafe reports found, skipping."
+                }
+            }
         }
-      }
+    }
     }
 
     stage('Build Docker Image') {
