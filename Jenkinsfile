@@ -13,11 +13,6 @@ pipeline {
 
   }
 
-  options {
-    timestamps()
-    buildDiscarder(logRotator(daysToKeepStr: '14'))
-  }
-
   stages {
 
     stage('Build & Unit Test') {
@@ -45,6 +40,15 @@ pipeline {
                 }
             }
         }
+
+
+    stage('Static Analysis') {
+  steps {
+    withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+      sh "mvn sonar:sonar -Dsonar.host.url=${SONAR_HOST} -Dsonar.login=${SONAR_TOKEN}"
+    }
+  }
+}
 
     stage('Integration Tests') {
       steps {
