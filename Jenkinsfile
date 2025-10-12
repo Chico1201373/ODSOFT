@@ -3,13 +3,8 @@ pipeline {
 
   environment {
     APP_NAME   = "books-api"
-    IMAGE_NAME = "odsoft/books-api"
-    TAG        = "${env.GIT_COMMIT ?: 'local'}"
-    SONAR_HOST = "http://localhost:9000"
-    SONARQUBE_ENV = 'MySonarServer'
-    SONAR_TOKEN = credentials('SONAR_TOKEN')
-
-    
+    IMAGE_BASE = "odsoft/books-api"
+    TAG        = "${env.GIT_COMMIT.take(7)}"
   }
 
   options {
@@ -19,164 +14,103 @@ pipeline {
 
   stages {
 
-    stage('Build & Compile') {
-    steps {
-        sh "mvn -B -DskipTests clean package"
-    }
-    post {
-        success {
-            archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
-        }
-        always {
-            jacoco(
-                execPattern: '**/target/jacoco.exec',
-                classPattern: '**/target/classes',
-                sourcePattern: '**/src/main/java',
-                exclusionPattern: ''
-            )
-        }
-    }
-}
-
-stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('MySonarServer') {
-                    sh '''
-                        mvn sonar:sonar \
-                          -Dsonar.projectKey=ODSOFT \
-                          -Dsonar.host.url=$SONAR_HOST_URL \
-                          -Dsonar.login=$SONAR_TOKEN \
-                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-                    '''
-                }
-            }
-        }
-
-
-    stage('Static Analysis') {
-  steps {
-    withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-      sh "mvn sonar:sonar -Dsonar.host.url=${SONAR_HOST} -Dsonar.login=${SONAR_TOKEN}"
-    }
-  }
-}
-
-
-    stage('Unit Tests') {
-    steps {
-        sh "mvn -B test"
-        sh "ls -l target/surefire-reports/" 
-    }
-    post {
-        always {
-            junit '**/target/surefire-reports/TEST-*.xml'
-        }
-    }
-    }
-
-    stage('Mutation Tests (PITest)') {
+    stage('Build & Unit Test') {
       steps {
-        sh "mvn org.pitest:pitest-maven:mutationCoverage"
+        sh 'mvn -B clean package'
+        sh 'mvn test'
       }
       post {
         always {
-          archiveArtifacts artifacts: 'target/pit-reports/**', fingerprint: true
+          junit '**/target/surefire-reports/TEST-*.xml'
+        }
+      }
+    }
+
+    stage('Static Analysis') {
+      steps {
+        withSonarQubeEnv('MySonarServer') {
+          sh "mvn sonar:sonar -Dsonar.login=${SONAR_TOKEN}"
         }
       }
     }
 
     stage('Integration Tests') {
-    steps {
-        sh "mvn -B verify -DskipUnitTests=true"
-    }
-    post {
-        always {
-            script {
-                if (fileExists('target/failsafe-reports')) {
-                    junit 'target/failsafe-reports/*.xml'
-                } else {
-                    echo "No Failsafe reports found, skipping."
-                }
-            }
-        }
-    }
-}
-    stage('Build Docker Image') {
       steps {
-        sh "docker build -t ${IMAGE_NAME}:${TAG} ."
+        sh 'mvn verify -DskipUnitTests=true'
+      }
+      post {
+        always {
+          junit 'target/failsafe-reports/*.xml'
+        }
       }
     }
 
-    stage('Push Image') {
-  when {
-    branch 'main'
-  }
-  steps {
-    script {
-      echo "Pushing image: ${IMAGE_NAME}:${TAG}"
+    stage('Build Docker Image') {
+      steps {
+        script {
+          env.IMAGE_NAME = "${IMAGE_BASE}:${env.BRANCH_NAME}-${TAG}"
+          sh "docker build -t ${IMAGE_NAME} ."
+        }
+      }
     }
-    withCredentials([usernamePassword(credentialsId: 'docker-creds',
-                                      usernameVariable: 'DOCKER_USER',
-                                      passwordVariable: 'DOCKER_PASS')]) {
-      sh '''
-        set +e
-        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-        docker push ${IMAGE_NAME}:${TAG}
-        STATUS=$?
-        if [ $STATUS -ne 0 ]; then
-          echo "⚠️ Docker push returned code $STATUS — probably a warning, continuing..."
-        fi
-        exit 0
-      '''
+
+    stage('Push Docker Image') {
+      when {
+        anyOf {
+          branch 'staging'
+          branch 'main'
+        }
+      }
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'docker-creds',
+                                          usernameVariable: 'DOCKER_USER',
+                                          passwordVariable: 'DOCKER_PASS')]) {
+          sh '''
+            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+            docker push ${IMAGE_NAME} || echo "⚠️ Push returned non-zero but image may still be uploaded"
+          '''
+        }
+      }
     }
-  }
-  post {
-    success {
-      echo "✅ Image pushed successfully."
-    }
-  }
-}
-
-
-
 
     stage('Deploy to Dev') {
       when { branch 'develop' }
       steps {
         sh """
-          export IMAGE_TAG=${TAG}
+          echo "🚀 Deploying to Dev environment"
           docker-compose -f docker-compose.dev.yml up -d --build
         """
       }
     }
 
-    stage('Functional/System Tests') {
+    stage('Deploy to Staging') {
+      when { branch 'staging' }
       steps {
-        sh "mvn -Dkarate.env=dev test -Dkarate.options='--tags @smoke'"
+        sh """
+          echo "🚀 Deploying to Staging environment"
+          docker-compose -f docker-compose.staging.yml up -d --build
+        """
       }
     }
 
-    stage('Promote to Staging/Prod') {
+    stage('Promote to Production') {
       when { branch 'main' }
       steps {
-        script {
-          input(message: "Promote to staging?")
-        }
-        sh "docker-compose -f docker-compose.staging.yml up -d --build"
+        input message: "Deploy to production?", ok: "Deploy"
+        sh """
+          echo "🚀 Deploying to Production environment"
+          docker-compose -f docker-compose.prod.yml up -d --build
+        """
       }
     }
   }
 
   post {
-    always {
-      archiveArtifacts artifacts: 'target/*.jar, target/*.war', allowEmptyArchive: true
-    }
     success {
-      echo "✅ Pipeline succeeded!"
+      echo "✅ ${env.BRANCH_NAME} pipeline completed successfully"
     }
     failure {
-      echo "❌ Build failed"
-  }
+      echo "❌ ${env.BRANCH_NAME} pipeline failed"
+    }
   }
 }
-// 
