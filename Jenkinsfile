@@ -5,6 +5,12 @@ pipeline {
     APP_NAME   = "books-api"
     IMAGE_BASE = "odsoft/books-api"
     TAG        = "${env.GIT_COMMIT.take(7)}"
+
+
+    SONAR_HOST = "http://localhost:9000"
+    SONARQUBE_ENV = 'MySonarServer'
+    SONAR_TOKEN = credentials('SONAR_TOKEN')
+
   }
 
   options {
