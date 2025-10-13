@@ -8,149 +8,145 @@ pipeline {
   }
 
   environment {
-    APP_NAME    = 'books-api'
-    SONAR_TOKEN = credentials('SONAR_TOKEN') // Jenkins credential ID
+    // Application
+    APP_NAME = 'books-api'
 
-    // Docker registry settings (override with Jenkins credentials/vars)
-    // Default registry; override by editing this file or setting env in Jenkins job
-  DOCKER_CREDENTIALS = 'docker-creds'
-    // Default image repo base (override via pipeline parameter or env var)
-    IMAGE_BASE = "chico0706/${APP_NAME}"
-    PROMOTE_TO_PROD = 'false'
-    IMAGE_TAG = ''
-    SONAR_SERVER_NAME = 'MySonarServer'
-    SONAR_HOST_URL = 'http://localhost:9000'
+    // Maven/Java tools (ensure Jenkins installs these tools)
+    MAVEN_HOME = tool name: 'maven-3.9.6', type: 'maven'
+    JAVA_HOME = tool name: 'jdk17', type: 'jdk'
+
+    // Sonar
+    SONAR_TOKEN = credentials('SONAR_TOKEN')
+    SONAR_SERVER = 'MySonarServer'
+    SONAR_PROJECT_KEY = 'ODSOFT'
+
+    // Docker registry credentials id
+    DOCKER_CREDENTIALS = 'docker-creds'
     
   }
 
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
     stage('Build - Unit Tests') {
       steps {
-        script {
-          if (!fileExists('pom.xml')) {
-            error 'Maven build required: pom.xml not found.'
-          }
-          // Maven build and tests
-          sh 'mvn -B -V -DskipTests=false clean verify'
-          // generate JaCoCo XML report (if plugin present in pom)
-          sh 'mvn jacoco:report || true'
-          // detect common jacoco xml paths for Maven
-          if (fileExists('target/site/jacoco/jacoco.xml')) {
-            env.JACOCO_PATH = 'target/site/jacoco/jacoco.xml'
-          } else if (fileExists('target/jacoco.xml')) {
-            env.JACOCO_PATH = 'target/jacoco.xml'
-          } else {
-            echo 'No JaCoCo XML found in target/; Sonar coverage may be unavailable.'
-          }
-        }
+        sh '${MAVEN_HOME}/bin/mvn -B -V -DskipTests=false clean test'
       }
       post {
         always {
-          junit allowEmptyResults: true, testResults: '**/target/surefire-reports/TEST-*.xml,**/build/test-results/**/*.xml'
-          archiveArtifacts artifacts: '**/target/*.jar,**/build/libs/*.jar', allowEmptyArchive: true
-          // Archive jacoco xml if found
-          script {
-            if (env.JACOCO_PATH) {
-              echo "Archiving JaCoCo report at: ${env.JACOCO_PATH}"
-              archiveArtifacts artifacts: "${env.JACOCO_PATH}", allowEmptyArchive: false
-            } else {
-              echo 'No JaCoCo report to archive.'
+          junit '**/target/surefire-reports/TEST-*.xml'
+          archiveArtifacts artifacts: '${ARTIFACT_GLOB}', allowEmptyArchive: true
+        }
+      }
+    }
+
+    stage('JaCoCo Coverage') {
+      steps {
+        sh '${MAVEN_HOME}/bin/mvn jacoco:prepare-agent test jacoco:report || true'
+      }
+      post {
+        always {
+          publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'target/site/jacoco', reportFiles: 'index.html', reportName: 'JaCoCo Coverage'])
+          archiveArtifacts artifacts: 'target/site/jacoco/jacoco.xml', allowEmptyArchive: true
+        }
+      }
+    }
+
+    stage('Mutation tests (PIT)') {
+      steps {
+        // run PIT mutation tests; requires PIT plugin configured in pom
+        sh '${MAVEN_HOME}/bin/mvn org.pitest:pitest-maven:mutationCoverage || true'
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'target/pit-reports/**', allowEmptyArchive: true
+        }
+      }
+    }
+
+    stage('Static Analysis - SonarQube') {
+      steps {
+        withSonarQubeEnv(SONAR_SERVER) {
+          sh "${MAVEN_HOME}/bin/mvn sonar:sonar -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.login=${SONAR_TOKEN} -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml || true"
+        }
+      }
+    }
+
+    stage('Wait For Quality Gate') {
+      steps {
+        // Only works if Sonar webhook is configured to notify Jenkins
+        script {
+          try {
+            timeout(time: 5, unit: 'MINUTES') {
+              def qg = waitForQualityGate(abortPipeline: false)
+              if (qg && qg.status != 'OK') {
+                unstable "SonarQube quality gate: ${qg.status}"
+              }
             }
+          } catch (Exception e) {
+            echo "Quality gate wait failed: ${e}. Continuing but mark UNSTABLE"
+            currentBuild.result = 'UNSTABLE'
           }
         }
       }
     }
 
-    stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('MySonarServer') {
-                    sh """
-                        mvn sonar:sonar \
-                          -Dsonar.projectKey=my-project \
-                          -Dsonar.host.url=${env.SONAR_HOST_URL} \
-                          -Dsonar.login=${SONAR_TOKEN} \
-                          -Dsonar.java.coveragePlugin=jacoco \
-                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-                    """
-                }
-            }
-        }
-
     stage('Integration Tests') {
       steps {
-        script {
-          if (fileExists('pom.xml')) {
-            sh 'mvn -B verify -DskipUnitTests=true'
-          } else {
-            echo 'Skipping integration tests (no pom.xml found)'
-          }
-        }
+        sh '${MAVEN_HOME}/bin/mvn verify -DskipUnitTests=true'
       }
       post {
         always {
-          junit allowEmptyResults: true, testResults: '**/target/failsafe-reports/*.xml'
+          junit '**/target/failsafe-reports/*.xml'
         }
+      }
+    }
+
+    stage('Build Artifact') {
+      steps {
+        sh '${MAVEN_HOME}/bin/mvn -B -V -DskipTests=true package'
+        archiveArtifacts artifacts: '${ARTIFACT_GLOB}', allowEmptyArchive: false
       }
     }
 
     stage('Build Docker Image') {
       steps {
         script {
-          sh "docker build -t ${env.IMAGE_NAME} ."
+          def imageTag = "${REGISTRY}/${env.BRANCH_NAME ?: 'local'}/${APP_NAME}:${env.BUILD_NUMBER}"
+          sh "docker build -t ${imageTag} ."
+          env.IMAGE_TAG = imageTag
         }
       }
     }
 
-    stage('Push Image (Staging/Main)') {
-      when {
-        anyOf {
-          branch 'staging'
-          branch 'main'
-        }
-      }
+    stage('Push Image') {
+      when { anyOf { branch 'staging'; branch 'main' } }
       steps {
         withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-          sh '''
-            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin ${REGISTRY}
-            docker push ${IMAGE_NAME}
-          '''
+          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin ${REGISTRY}'
+          sh 'docker push ${IMAGE_TAG}'
         }
       }
     }
 
-    stage('Deploy to Dev') {
+    stage('Deploy to Dev (local)') {
       when { branch 'develop' }
       steps {
-        echo 'Deploying to Dev environment (dev branch)'
-        // example: trigger remote deploy job or run compose locally if available
-        sh 'docker-compose -f docker-compose.dev.yml up -d --build || true'
+        sh 'docker-compose -f ${DEV_COMPOSE_FILE} up -d --build'
       }
     }
 
     stage('Deploy to Staging') {
       when { branch 'staging' }
       steps {
-        echo 'Deploying to Staging environment (staging branch)'
-        sh 'docker-compose -f docker-compose.staging.yml up -d --build || true'
-      }
-    }
-
-    stage('Promotion to Production') {
-      when { branch 'staging' }
-      steps {
         script {
-          if (env.PROMOTE_TO_PROD == 'true' || env.PROMOTE_TO_PROD == 'True') {
-            // Tag the staging image as prod and push
-            def prodTag = "${IMAGE_BASE}:prod"
-            withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-              sh '''
-                echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin ${REGISTRY}
-                docker tag ${IMAGE_NAME} ${IMAGE_BASE}:prod
-                docker push ${IMAGE_BASE}:prod
-              '''
-            }
-            echo "Promoted ${env.IMAGE_NAME} to ${IMAGE_BASE}:prod"
-          } else {
-            echo 'Promotion to production skipped (PROMOTE_TO_PROD is false)'
+          // Push image already done in Push Image stage; remote deploy via SSH
+          sshagent (credentials: [DEPLOY_SSH_CREDENTIALS]) {
+            sh "ssh -o StrictHostKeyChecking=no ${STAGING_HOST} 'docker pull ${IMAGE_TAG} && docker tag ${IMAGE_TAG} ${APP_NAME}:prod && docker-compose -f /opt/${APP_NAME}/docker-compose.staging.yml up -d --build'"
           }
         }
       }
@@ -159,22 +155,25 @@ pipeline {
     stage('Deploy to Production') {
       when { branch 'main' }
       steps {
-        input message: 'Approve deployment to PRODUCTION?', ok: 'Deploy'
-        echo 'Deploying to Production environment (main branch)'
-        sh 'docker-compose -f docker-compose.prod.yml up -d --build || true'
+        input message: 'Approve production deploy', ok: 'Deploy'
+        script {
+          sshagent (credentials: [DEPLOY_SSH_CREDENTIALS]) {
+            sh "ssh -o StrictHostKeyChecking=no ${PROD_HOST} 'docker pull ${IMAGE_TAG} && docker tag ${IMAGE_TAG} ${APP_NAME}:prod && docker-compose -f /opt/${APP_NAME}/docker-compose.prod.yml up -d --build'"
+          }
+        }
       }
     }
   }
 
   post {
     success {
-      echo "Pipeline completed: ${env.BRANCH_NAME}"
-    }
-    failure {
-      echo "Pipeline failed: ${env.BRANCH_NAME}"
+      echo 'Pipeline succeeded.'
     }
     unstable {
-      echo 'Pipeline finished unstable'
+      echo 'Pipeline finished unstable. Check logs.'
+    }
+    failure {
+      echo 'Pipeline failed.'
     }
   }
 }
