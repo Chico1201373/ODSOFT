@@ -11,7 +11,7 @@ pipeline {
   // Request tools from Jenkins global config. Ensure you have a JDK 21 installation
   // named 'jdk21' and a Maven installation named 'maven-3.9.6' (or update names as configured).
   tools {
-    jdk 'jdk21'
+    jdk 'jdk17'
     maven 'maven-3.9.6'
   }
 
@@ -21,10 +21,6 @@ pipeline {
     REGISTRY    = credentials('docker-registry-url') ?: 'docker.io'
     DOCKER_CREDENTIALS = 'docker-creds'
 
-    // SonarQube
-    SONARQUBE_ENV = 'MySonarServer'
-    SONAR_TOKEN = credentials('SONAR_TOKEN')
-
     // Default image repo base (override via pipeline parameter or env var)
     IMAGE_BASE = "chico0706/${APP_NAME}"
   }
@@ -32,6 +28,7 @@ pipeline {
   parameters {
     booleanParam(name: 'PROMOTE_TO_PROD', defaultValue: false, description: 'When true and on staging, promote the built image to production tag')
     string(name: 'IMAGE_TAG', defaultValue: '', description: 'Optional override for image tag (defaults to branch or build number)')
+    string(name: 'SONAR_SERVER_NAME', defaultValue: 'MySonarServer', description: 'Name of the SonarQube server configured in Jenkins (Manage Jenkins → Configure System → SonarQube servers)')
   }
 
   stages {
@@ -60,8 +57,26 @@ pipeline {
         script {
           if (fileExists('pom.xml')) {
             sh 'mvn -B -V -DskipTests=false clean verify'
+            // try to generate JaCoCo XML report (if configured in pom)
+            sh 'mvn jacoco:report || true'
+            // detect common jacoco xml paths for Maven
+            if (fileExists('target/site/jacoco/jacoco.xml')) {
+              env.JACOCO_PATH = 'target/site/jacoco/jacoco.xml'
+            } else if (fileExists('target/jacoco.xml')) {
+              env.JACOCO_PATH = 'target/jacoco.xml'
+            } else {
+              echo 'No JaCoCo XML found for Maven in target/; Sonar coverage may be unavailable.'
+            }
           } else if (fileExists('build.gradle')) {
-            sh './gradlew clean build --no-daemon'
+            sh './gradlew clean build jacocoTestReport --no-daemon || true'
+            // detect common jacoco xml paths for Gradle
+            if (fileExists('build/reports/jacoco/test/jacocoTestReport.xml')) {
+              env.JACOCO_PATH = 'build/reports/jacoco/test/jacocoTestReport.xml'
+            } else if (fileExists('build/jacoco/test/jacocoTestReport.xml')) {
+              env.JACOCO_PATH = 'build/jacoco/test/jacocoTestReport.xml'
+            } else {
+              echo 'No JaCoCo XML found for Gradle in build/; Sonar coverage may be unavailable.'
+            }
           } else {
             error 'No recognized build file (pom.xml or build.gradle) found.'
           }
@@ -71,6 +86,15 @@ pipeline {
         always {
           junit allowEmptyResults: true, testResults: '**/target/surefire-reports/TEST-*.xml,**/build/test-results/**/*.xml'
           archiveArtifacts artifacts: '**/target/*.jar,**/build/libs/*.jar', allowEmptyArchive: true
+          // Archive jacoco xml if found
+          script {
+            if (env.JACOCO_PATH) {
+              echo "Archiving JaCoCo report at: ${env.JACOCO_PATH}"
+              archiveArtifacts artifacts: "${env.JACOCO_PATH}", allowEmptyArchive: false
+            } else {
+              echo 'No JaCoCo report to archive.'
+            }
+          }
         }
       }
     }
@@ -78,13 +102,51 @@ pipeline {
     stage('Static Analysis - SonarQube') {
       when { expression { fileExists('pom.xml') || fileExists('build.gradle') } }
       steps {
-        withSonarQubeEnv(SONARQUBE_ENV) {
+        // Use the SonarQube server name provided as a parameter so it's configurable per-job
+        withSonarQubeEnv(params.SONAR_SERVER_NAME) {
+          // bind token just for the sonar call
           withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
             script {
-              if (fileExists('pom.xml')) {
-                sh "mvn sonar:sonar -Dsonar.login=$SONAR_TOKEN"
-              } else {
-                sh "./gradlew sonarqube -Dsonar.login=$SONAR_TOKEN"
+              echo "SONAR_SERVER=${params.SONAR_SERVER_NAME}"
+              echo "SONAR_HOST_URL=${env.SONAR_HOST_URL}"
+              try {
+                // Pass JaCoCo XML report path to Sonar if available
+                def coverageArg = ''
+                if (env.JACOCO_PATH) {
+                  coverageArg = "-Dsonar.coverage.jacoco.xmlReportPaths=${env.JACOCO_PATH}"
+                  echo "Using JaCoCo report: ${env.JACOCO_PATH}"
+                } else {
+                  echo 'No JaCoCo report detected; continuing without sonar.coverage.jacoco.xmlReportPaths'
+                }
+
+                if (fileExists('pom.xml')) {
+                  sh "mvn sonar:sonar -Dsonar.login=$SONAR_TOKEN -Dsonar.host.url=$SONAR_HOST_URL ${coverageArg}"
+                } else {
+                  // Gradle property for sonar plugin is the same; pass path via system property
+                  sh "./gradlew sonarqube -Dsonar.login=$SONAR_TOKEN -Dsonar.host.url=$SONAR_HOST_URL ${coverageArg}"
+                }
+
+                // Wait for SonarQube Quality Gate result (requires SonarQube plugin in Jenkins)
+                timeout(time: 5, unit: 'MINUTES') {
+                  script {
+                    def qg = waitForQualityGate(abortPipeline: false)
+                    if (qg == null) {
+                      echo 'No quality gate result available yet.'
+                    } else {
+                      echo "Sonar Quality Gate status: ${qg.status}"
+                      if (qg.status != 'OK') {
+                        unstable "Quality gate not OK: ${qg.status}"
+                      }
+                    }
+                  }
+                }
+
+              } catch (err) {
+                // Don't hard fail the whole pipeline for Sonar misconfigurations — surface useful debug info instead
+                echo "ERROR running SonarQube analysis: ${err}"
+                echo 'Common causes: SONAR_TOKEN missing/wrong, Sonar server misconfigured in Jenkins, Sonar server unreachable from agent.'
+                echo 'Check Manage Jenkins → Configure System → SonarQube servers, and confirm SONAR_TOKEN credential id.'
+                currentBuild.result = 'UNSTABLE'
               }
             }
           }
