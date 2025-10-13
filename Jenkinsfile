@@ -1,189 +1,105 @@
 pipeline {
-  agent any
+    agent any
 
-  options {
-    buildDiscarder(logRotator(daysToKeepStr: '30', numToKeepStr: '50'))
-    timestamps()
-    disableConcurrentBuilds()
-  }
-
-  tools {
-    // Ensure these tool names match the Global Tool Configuration in Jenkins
-    maven 'maven-3.9.6'
-    jdk 'jdk17'
-  }
-
-  environment {
-    // Application
-    APP_NAME = 'books-api'
-
-  // Maven/JDK tools are provided via the 'tools' block above
-
-    // Sonar
-    SONAR_TOKEN = credentials('SONAR_TOKEN')
-    SONAR_SERVER = 'MySonarServer'
-    SONAR_PROJECT_KEY = 'ODSOFT'
-
-    // Docker registry credentials id
-    DOCKER_CREDENTIALS = 'docker-creds'
-  REGISTRY = 'docker.io'
-  ARTIFACT_GLOB = 'target/*.jar'
-  // Compose files for environments (change if your files are named differently)
-  DEV_COMPOSE_FILE = 'docker-compose.dev.yml'
-  STAGING_COMPOSE_FILE = 'docker-compose.staging.yml'
-  PROD_COMPOSE_FILE = 'docker-compose.prod.yml'
-  }
-
-  stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
+    environment {
+        DOCKER_IMAGE = "myapp:${env.BUILD_NUMBER}"
+        SONAR_PROJECT_KEY = 'myapp-sonar'
     }
 
-    stage('Build - Unit Tests') {
-      steps {
-        sh 'mvn -B -V -DskipTests=false clean test'
-      }
-      post {
-        always {
-          junit '**/target/surefire-reports/TEST-*.xml'
-          archiveArtifacts artifacts: '${ARTIFACT_GLOB}', allowEmptyArchive: true
-        }
-      }
-    }
+    stages {
 
-    stage('JaCoCo Coverage') {
-      steps {
-        sh 'mvn jacoco:prepare-agent test jacoco:report || true'
-      }
-      post {
-        always {
-          publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'target/site/jacoco', reportFiles: 'index.html', reportName: 'JaCoCo Coverage'])
-          archiveArtifacts artifacts: 'target/site/jacoco/jacoco.xml', allowEmptyArchive: true
-        }
-      }
-    }
-
-    stage('Mutation tests (PIT)') {
-      steps {
-        // run PIT mutation tests; requires PIT plugin configured in pom
-        sh 'mvn org.pitest:pitest-maven:mutationCoverage || true'
-      }
-      post {
-        always {
-          archiveArtifacts artifacts: 'target/pit-reports/**', allowEmptyArchive: true
-        }
-      }
-    }
-
-    stage('Static Analysis - SonarQube') {
-      steps {
-        withSonarQubeEnv(SONAR_SERVER) {
-          sh "mvn sonar:sonar -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.login=${SONAR_TOKEN} -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml || true"
-        }
-      }
-    }
-
-    stage('Wait For Quality Gate') {
-      steps {
-        // Only works if Sonar webhook is configured to notify Jenkins
-        script {
-          try {
-            timeout(time: 5, unit: 'MINUTES') {
-              def qg = waitForQualityGate(abortPipeline: false)
-              if (qg && qg.status != 'OK') {
-                unstable "SonarQube quality gate: ${qg.status}"
-              }
+        stage('Checkout') {
+            steps {
+                checkout scm
             }
-          } catch (Exception e) {
-            echo "Quality gate wait failed: ${e}. Continuing but mark UNSTABLE"
-            currentBuild.result = 'UNSTABLE'
-          }
         }
-      }
-    }
 
-    stage('Integration Tests') {
-      steps {
-        sh 'mvn verify -DskipUnitTests=true'
-      }
-      post {
-        always {
-          junit '**/target/failsafe-reports/*.xml'
+        stage('Build & Package') {
+            steps {
+                sh 'mvn clean package'
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
+                }
+            }
         }
-      }
-    }
 
-    stage('Build Artifact') {
-      steps {
-        sh 'mvn -B -V -DskipTests=true package'
-        archiveArtifacts artifacts: '${ARTIFACT_GLOB}', allowEmptyArchive: false
-      }
-    }
-
-    stage('Build Docker Image') {
-      steps {
-        script {
-          def imageTag = "${REGISTRY}/${env.BRANCH_NAME ?: 'local'}/${APP_NAME}:${env.BUILD_NUMBER}"
-          sh "docker build -t ${imageTag} ."
-          env.IMAGE_TAG = imageTag
+        stage('Static Code Analysis') {
+            steps {
+                // Use SONAR_TOKEN from Jenkins Credentials
+                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_AUTH_TOKEN')]) {
+                    sh "mvn sonar:sonar -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.login=$SONAR_AUTH_TOKEN"
+                }
+            }
         }
-      }
-    }
 
-    stage('Push Image') {
-      when { anyOf { branch 'staging'; branch 'main' } }
-      steps {
-        withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin ${REGISTRY}'
-          sh 'docker push ${IMAGE_TAG}'
+        stage('Unit Testing') {
+            steps {
+                sh 'mvn test'
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                    jacoco(execPattern: '**/target/jacoco.exec', classPattern: '**/target/classes', sourcePattern: 'src/main/java')
+                }
+            }
         }
-      }
-    }
 
-    stage('Deploy to Dev (local)') {
-      when { branch 'develop' }
-      steps {
-        sh 'docker-compose -f ${DEV_COMPOSE_FILE} up -d --build'
-      }
-    }
-
-    stage('Deploy to Staging') {
-      when { branch 'staging' }
-      steps {
-        script {
-          echo 'Deploying to Staging via local docker-compose'
-          sh "docker pull ${IMAGE_TAG} || true"
-          sh "docker tag ${IMAGE_TAG} ${APP_NAME}:staging || true"
-          sh "docker-compose -f ${STAGING_COMPOSE_FILE} up -d --build || true"
+        stage('Mutation Testing') {
+            steps {
+                sh 'mvn org.pitest:pitest-maven:mutationCoverage'
+            }
         }
-      }
-    }
 
-    stage('Deploy to Production') {
-      when { branch 'main' }
-      steps {
-        input message: 'Approve production deploy', ok: 'Deploy'
-        script {
-          echo 'Deploying to Production via local docker-compose'
-          sh "docker pull ${IMAGE_TAG} || true"
-          sh "docker tag ${IMAGE_TAG} ${APP_NAME}:prod || true"
-          sh "docker-compose -f ${PROD_COMPOSE_FILE} up -d --build || true"
+        stage('Integration Testing') {
+            steps {
+                sh 'mvn verify -Pintegration-tests'
+            }
+            post {
+                always {
+                    junit '**/target/failsafe-reports/*.xml'
+                }
+            }
         }
-      }
-    }
-  }
 
-  post {
-    success {
-      echo 'Pipeline succeeded.'
+        stage('Build Docker Image') {
+            when {
+                expression { fileExists('Dockerfile') }
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh """
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        docker build -t ${DOCKER_IMAGE} .
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to Local') {
+            steps {
+                sh 'nohup java -jar target/myapp.jar &'
+            }
+        }
+
+        stage('Deploy to Docker') {
+            when {
+                expression { fileExists('Dockerfile') }
+            }
+            steps {
+                sh "docker run -d -p 8080:8080 ${DOCKER_IMAGE}"
+            }
+        }
     }
-    unstable {
-      echo 'Pipeline finished unstable. Check logs.'
+
+    post {
+        failure {
+          echo "Pipeline unsuccessfully!"
+
+        }
+        success {
+            echo "Pipeline completed successfully!"
+        }
     }
-    failure {
-      echo 'Pipeline failed.'
-    }
-  }
 }
