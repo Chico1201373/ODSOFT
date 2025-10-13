@@ -3,10 +3,9 @@ pipeline {
 
   environment {
     APP_NAME   = "books-api"
-  IMAGE_NAME = 'odsoft/books-api'
-  TAG = "${env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME}"
-
-
+    IMAGE_NAME = 'odsoft/books-api'
+    TAG = "${env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME}"
+    IMAGE_BASE = 'odsoft/books-api'
     SONAR_HOST = "http://localhost:9000"
     SONARQUBE_ENV = 'MySonarServer'
     SONAR_TOKEN = credentials('SONAR_TOKEN')
@@ -60,16 +59,13 @@ pipeline {
     }
     }
 
-    stage('Build Docker Image') {
-      steps {
-        script {
-          env.IMAGE_NAME = "${IMAGE_BASE}:${env.BRANCH_NAME}-${TAG}"
-          sh "docker build -t ${IMAGE_NAME} ."
-        }
-      }
-    }
+  stage('Build Docker Image') {
+    steps {
+      script {
+        echo "🛠️ Building image ${IMAGE_NAME}"
+        sh "docker build -t ${IMAGE_NAME} ."
+      }}}
 
-  
  stage('Push Docker Image') {
   when {
     anyOf {
