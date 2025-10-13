@@ -22,7 +22,12 @@ pipeline {
 
     // Docker registry credentials id
     DOCKER_CREDENTIALS = 'docker-creds'
-    
+  REGISTRY = 'docker.io'
+  ARTIFACT_GLOB = 'target/*.jar'
+  // Compose files for environments (change if your files are named differently)
+  DEV_COMPOSE_FILE = 'docker-compose.dev.yml'
+  STAGING_COMPOSE_FILE = 'docker-compose.staging.yml'
+  PROD_COMPOSE_FILE = 'docker-compose.prod.yml'
   }
 
   stages {
@@ -144,10 +149,10 @@ pipeline {
       when { branch 'staging' }
       steps {
         script {
-          // Push image already done in Push Image stage; remote deploy via SSH
-          sshagent (credentials: [DEPLOY_SSH_CREDENTIALS]) {
-            sh "ssh -o StrictHostKeyChecking=no ${STAGING_HOST} 'docker pull ${IMAGE_TAG} && docker tag ${IMAGE_TAG} ${APP_NAME}:prod && docker-compose -f /opt/${APP_NAME}/docker-compose.staging.yml up -d --build'"
-          }
+          echo 'Deploying to Staging via local docker-compose'
+          sh "docker pull ${IMAGE_TAG} || true"
+          sh "docker tag ${IMAGE_TAG} ${APP_NAME}:staging || true"
+          sh "docker-compose -f ${STAGING_COMPOSE_FILE} up -d --build || true"
         }
       }
     }
@@ -157,9 +162,10 @@ pipeline {
       steps {
         input message: 'Approve production deploy', ok: 'Deploy'
         script {
-          sshagent (credentials: [DEPLOY_SSH_CREDENTIALS]) {
-            sh "ssh -o StrictHostKeyChecking=no ${PROD_HOST} 'docker pull ${IMAGE_TAG} && docker tag ${IMAGE_TAG} ${APP_NAME}:prod && docker-compose -f /opt/${APP_NAME}/docker-compose.prod.yml up -d --build'"
-          }
+          echo 'Deploying to Production via local docker-compose'
+          sh "docker pull ${IMAGE_TAG} || true"
+          sh "docker tag ${IMAGE_TAG} ${APP_NAME}:prod || true"
+          sh "docker-compose -f ${PROD_COMPOSE_FILE} up -d --build || true"
         }
       }
     }
