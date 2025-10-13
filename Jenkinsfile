@@ -53,15 +53,16 @@ pipeline {
         }
 
         stage('Integration Testing') {
-            steps {
-                sh 'mvn verify -Pintegration-tests'
-            }
-            post {
-                always {
-                    junit '**/target/failsafe-reports/*.xml'
-                }
-            }
+    steps {
+        sh 'mvn verify -Pintegration-tests'
+    }
+    post {
+        always {
+            junit '**/target/failsafe-reports/*.xml'
         }
+    }
+}
+
 
         stage('Build Docker Image') {
             when {
