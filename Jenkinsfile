@@ -13,14 +13,12 @@ pipeline {
 
     // Docker registry settings (override with Jenkins credentials/vars)
     // Default registry; override by editing this file or setting env in Jenkins job
-    DOCKER_CREDENTIALS = 'docker-creds'
+  DOCKER_CREDENTIALS = 'docker-creds'
     // Default image repo base (override via pipeline parameter or env var)
     IMAGE_BASE = "chico0706/${APP_NAME}"
-  }
-
-  parameters {
-    booleanParam(name: 'PROMOTE_TO_PROD', defaultValue: false, description: 'When true and on staging, promote the built image to production tag')
-    string(name: 'IMAGE_TAG', defaultValue: '', description: 'Optional override for image tag (defaults to branch or build number)')
+    PROMOTE_TO_PROD = 'false'
+    IMAGE_TAG = ''
+    SONAR_SERVER_NAME = 'MySonarServer'
   }
 
   stages {
@@ -30,7 +28,7 @@ pipeline {
         script {
           // detect tag
           def defaultTag = env.BRANCH_NAME == 'main' ? 'latest' : (env.BRANCH_NAME ?: "build-${env.BUILD_NUMBER}")
-          env.TAG = params.IMAGE_TAG ? params.IMAGE_TAG : defaultTag
+          env.TAG = env.IMAGE_TAG?.trim() ? env.IMAGE_TAG : defaultTag
           env.IMAGE_NAME = "${IMAGE_BASE}:${env.TAG}"
           echo "Building image ${env.IMAGE_NAME}"
         }
@@ -81,18 +79,54 @@ pipeline {
     }
 
     stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube') { // Name from Jenkins config
-                    sh """
-                        mvn sonar:sonar \
-                          -Dsonar.projectKey=my-project \
-                          -Dsonar.host.url=${env.SONAR_HOST_URL} \
-                          -Dsonar.login=${SONAR_TOKEN} \
-                          -Dsonar.java.coveragePlugin=jacoco \
-                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-                    """
+      steps {
+        script {
+          withSonarQubeEnv(env.SONAR_SERVER_NAME) {
+            try {
+              echo "SONAR_SERVER_NAME=${env.SONAR_SERVER_NAME}"
+              echo "SONAR_HOST_URL=${env.SONAR_HOST_URL}"
+
+              def coverageArg = ''
+              if (env.JACOCO_PATH) {
+                coverageArg = "-Dsonar.coverage.jacoco.xmlReportPaths=${env.JACOCO_PATH}"
+                echo "Using JaCoCo report: ${env.JACOCO_PATH}"
+              } else {
+                echo 'No JaCoCo report detected; continuing without coverage property.'
+              }
+
+              def scannerCmd = "mvn sonar:sonar -Dsonar.projectKey=my-project -Dsonar.host.url=${env.SONAR_HOST_URL} -Dsonar.login=${SONAR_TOKEN} -Dsonar.java.coveragePlugin=jacoco ${coverageArg}"
+              echo "Running: ${scannerCmd}"
+              def rc = sh(script: scannerCmd, returnStatus: true)
+              if (rc != 0) {
+                echo "Sonar scanner returned non-zero exit code: ${rc}. Skipping waitForQualityGate."
+                currentBuild.result = 'UNSTABLE'
+              } else {
+                // Wait for quality gate result (requires SonarQube plugin + webhook)
+                try {
+                  timeout(time: 5, unit: 'MINUTES') {
+                    def qg = waitForQualityGate(abortPipeline: false)
+                    if (qg == null) {
+                      echo 'No quality gate result available.'
+                    } else {
+                      echo "Sonar Quality Gate status: ${qg.status}"
+                      if (qg.status != 'OK') {
+                        unstable "Quality gate not OK: ${qg.status}"
+                      }
+                    }
+                  }
+                } catch (err) {
+                  echo "Error waiting for Sonar quality gate: ${err}"
+                  currentBuild.result = 'UNSTABLE'
                 }
+              }
+            } catch (err) {
+              echo "ERROR running SonarQube analysis: ${err}"
+              echo 'Common causes: SONAR_TOKEN missing/wrong, Sonar server misconfigured in Jenkins, Sonar server unreachable from agent.'
+              currentBuild.result = 'UNSTABLE'
             }
+          }
+        }
+      }
         }
 
 
@@ -159,7 +193,7 @@ pipeline {
       when { branch 'staging' }
       steps {
         script {
-          if (params.PROMOTE_TO_PROD) {
+          if (env.PROMOTE_TO_PROD == 'true' || env.PROMOTE_TO_PROD == 'True') {
             // Tag the staging image as prod and push
             def prodTag = "${IMAGE_BASE}:prod"
             withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
