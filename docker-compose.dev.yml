@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  books-api:
+    image: chico0706/books-api:dev
+    build: .
+    container_name: books-api-dev
+    ports:
+      - "8081:8081"
+    networks:
+      - test-network
+    restart: unless-stopped
