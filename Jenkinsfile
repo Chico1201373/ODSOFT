@@ -26,12 +26,20 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-    steps {
-        withSonarQubeEnv('SonarQubeServer') {
-            sh 'mvn clean verify sonar:sonar -Dsonar.projectKey=myapp -Dsonar.login=$SONAR_TOKEN'
+            when {
+                anyOf {
+                    branch 'develop'
+                    branch 'staging'
+                    branch 'main'
+                }
+            }
+            steps {
+                withSonarQubeEnv('SonarQubeServer') {
+                    sh 'mvn clean verify sonar:sonar -Dsonar.projectKey=myapp -Dsonar.login=$SONAR_TOKEN'
+                }
+            }
         }
-    }
-}
+
         stage('Unit Testing') {
             steps {
                 sh 'mvn test'
@@ -51,20 +59,16 @@ pipeline {
         }
 
         stage('Integration Tests') {
-    steps {
-        sh 'mvn verify'
-    }
-    post {
-        always {
-            junit '**/target/surefire-reports/*.xml'
-            
-            jacoco execPattern: '**/target/jacoco.exec', 
-                   classPattern: '**/target/classes', 
-                   sourcePattern: '**/src/main/java'
+            steps {
+                sh 'mvn verify'
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                    jacoco(execPattern: '**/target/jacoco.exec', classPattern: '**/target/classes', sourcePattern: 'src/main/java')
+                }
+            }
         }
-    }
-}
-
 
         stage('Build Docker Image') {
             when {
@@ -80,29 +84,41 @@ pipeline {
             }
         }
 
-        stage('Deploy to Local') {
-            steps {
-                sh 'nohup java -jar target/myapp.jar &'
-            }
-        }
-
-        stage('Deploy to Docker') {
+        stage('Deploy') {
             when {
-                expression { fileExists('Dockerfile') }
+                anyOf {
+                    branch 'develop'
+                    branch 'staging'
+                    branch 'main'
+                }
             }
             steps {
-                sh "docker run -d -p 8090:8090 ${DOCKER_IMAGE}"
+                script {
+                    if (env.BRANCH_NAME == 'develop') {
+                        echo "🚀 Deploying to DEVELOPMENT environment..."
+                        sh 'nohup java -jar target/myapp.jar &'
+                    } else if (env.BRANCH_NAME == 'staging') {
+                        echo "🚀 Deploying to STAGING environment (Docker)..."
+                        sh "docker run -d -p 8090:8090 ${DOCKER_IMAGE}"
+                    } else if (env.BRANCH_NAME == 'main') {
+                        echo "🚀 Deploying to PRODUCTION environment (Docker)..."
+                        sh """
+                            docker stop myapp || true
+                            docker rm myapp || true
+                            docker run -d --name myapp -p 80:8090 ${DOCKER_IMAGE}
+                        """
+                    }
+                }
             }
         }
     }
 
     post {
         failure {
-          echo "Pipeline completed unsuccessfully!"
-
+            echo "❌ Pipeline completed unsuccessfully!"
         }
         success {
-            echo "Pipeline completed successfully!"
+            echo "✅ Pipeline completed successfully!"
         }
     }
 }
