@@ -19,28 +19,32 @@ pipeline {
     PROMOTE_TO_PROD = 'false'
     IMAGE_TAG = ''
     SONAR_SERVER_NAME = 'MySonarServer'
+    SONAR_HOST_URL = 'http://localhost:9000'
   }
 
   stages {
-
-    stage('Prepare') {
-      steps {
-        script {
-          // detect tag
-          def defaultTag = env.BRANCH_NAME == 'main' ? 'latest' : (env.BRANCH_NAME ?: "build-${env.BUILD_NUMBER}")
-          env.TAG = env.IMAGE_TAG?.trim() ? env.IMAGE_TAG : defaultTag
-          env.IMAGE_NAME = "${IMAGE_BASE}:${env.TAG}"
-          echo "Building image ${env.IMAGE_NAME}"
-        }
-      }
-    }
-
     stage('Checkout') {
       steps {
         checkout scm
+        script {
+          // Determine image tag based on branch or PR
+          if (env.BRANCH_NAME == 'main') {
+            env.IMAGE_TAG = 'latest'
+          } else if (env.BRANCH_NAME == 'staging') {
+            env.IMAGE_TAG = 'staging'
+          } else if (env.BRANCH_NAME == 'develop') {
+            env.IMAGE_TAG = 'dev'
+          } else if (env.CHANGE_ID) {
+            env.IMAGE_TAG = "pr-${env.CHANGE_ID}"
+          } else {
+            // For other branches, use branch name as tag (sanitize if needed)
+            env.IMAGE_TAG = env.BRANCH_NAME.replaceAll('/', '-').toLowerCase()
+          }
+          env.IMAGE_NAME = "${env.IMAGE_BASE}:${env.IMAGE_TAG}"
+          echo "Determined IMAGE_NAME: ${env.IMAGE_NAME}"
+        }
       }
     }
-
     stage('Build - Unit Tests') {
       steps {
         script {
@@ -79,61 +83,18 @@ pipeline {
     }
 
     stage('SonarQube Analysis') {
-      steps {
-        script {
-          withSonarQubeEnv(env.SONAR_SERVER_NAME) {
-            try {
-              echo "SONAR_SERVER_NAME=${env.SONAR_SERVER_NAME}"
-              echo "SONAR_HOST_URL=${env.SONAR_HOST_URL}"
-
-              def coverageArg = ''
-              if (env.JACOCO_PATH) {
-                coverageArg = "-Dsonar.coverage.jacoco.xmlReportPaths=${env.JACOCO_PATH}"
-                echo "Using JaCoCo report: ${env.JACOCO_PATH}"
-              } else {
-                echo 'No JaCoCo report detected; continuing without coverage property.'
-              }
-
-              def scannerCmd = "mvn sonar:sonar -Dsonar.projectKey=my-project -Dsonar.host.url=${env.SONAR_HOST_URL} -Dsonar.login=${SONAR_TOKEN} -Dsonar.java.coveragePlugin=jacoco ${coverageArg}"
-              echo "Running: ${scannerCmd}"
-              def rc = sh(script: scannerCmd, returnStatus: true)
-              if (rc != 0) {
-                echo "Sonar scanner returned non-zero exit code: ${rc}. Skipping waitForQualityGate."
-                currentBuild.result = 'UNSTABLE'
-              } else {
-                // Wait for quality gate result (requires SonarQube plugin + webhook)
-                try {
-                  timeout(time: 5, unit: 'MINUTES') {
-                    try {
-                      def qg = waitForQualityGate(abortPipeline: false)
-                      if (qg == null) {
-                        echo 'No quality gate result available.'
-                      } else {
-                        echo "Sonar Quality Gate status: ${qg.status}"
-                        if (qg.status != 'OK') {
-                          unstable "Quality gate not OK: ${qg.status}"
-                        }
-                      }
-                    } catch (java.lang.IllegalStateException ise) {
-                      // This happens when there was no prior analysis in this pipeline execution
-                      echo "waitForQualityGate failed: ${ise}. This usually means the Sonar scanner did not publish an analysis for this run."
-                      echo 'Possible causes: scanner failed, Sonar webhook not configured, or analysis submitted to a different Sonar project/key.'
-                      currentBuild.result = 'UNSTABLE'
-                    }
-                  }
-                } catch (err) {
-                  echo "Error waiting for Sonar quality gate: ${err}"
-                  currentBuild.result = 'UNSTABLE'
+            steps {
+                withSonarQubeEnv('SonarQube') { 
+                    sh """
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=my-project \
+                          -Dsonar.host.url=${env.SONAR_HOST_URL} \
+                          -Dsonar.login=${SONAR_TOKEN} \
+                          -Dsonar.java.coveragePlugin=jacoco \
+                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                    """
                 }
-              }
-            } catch (err) {
-              echo "ERROR running SonarQube analysis: ${err}"
-              echo 'Common causes: SONAR_TOKEN missing/wrong, Sonar server misconfigured in Jenkins, Sonar server unreachable from agent.'
-              currentBuild.result = 'UNSTABLE'
             }
-          }
-        }
-      }
         }
 
 
