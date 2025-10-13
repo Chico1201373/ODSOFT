@@ -54,11 +54,11 @@ pipeline {
 
         stage('Integration Tests') {
     steps {
-        sh 'mvn verify -Pintegration-tests'
+        sh 'mvn verify'
     }
     post {
         always {
-            junit '**/target/surefire-reports/*.xml'
+            junit '**/target/failsafe-reports/*.xml'
             
             jacoco execPattern: '**/target/jacoco.exec', 
                    classPattern: '**/target/classes', 
