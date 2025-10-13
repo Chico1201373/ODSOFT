@@ -16,7 +16,7 @@ pipeline {
 
         stage('Build & Package') {
             steps {
-                sh 'mvn clean install'
+                sh 'mvn clean package'
             }
             post {
                 success {
@@ -58,7 +58,7 @@ pipeline {
     }
     post {
         always {
-            junit '**/target/failsafe-reports/*.xml'
+            junit '**/target/surefire-reports/*.xml'
             
             jacoco execPattern: '**/target/jacoco.exec', 
                    classPattern: '**/target/classes', 
