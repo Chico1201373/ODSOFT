@@ -4,16 +4,14 @@ pipeline {
   options {
     buildDiscarder(logRotator(daysToKeepStr: '30', numToKeepStr: '50'))
     timestamps()
-    ansiColor('xterm')
     disableConcurrentBuilds()
   }
 
   environment {
     APP_NAME    = 'books-api'
     // Docker registry settings (override with Jenkins credentials/vars)
-    REGISTRY    = credentials('docker-registry-url') ?: 'docker.io'
+    // Default registry; override by editing this file or setting env in Jenkins job
     DOCKER_CREDENTIALS = 'docker-creds'
-
     // Default image repo base (override via pipeline parameter or env var)
     IMAGE_BASE = "chico0706/${APP_NAME}"
   }
