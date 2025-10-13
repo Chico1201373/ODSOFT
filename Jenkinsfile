@@ -20,31 +20,9 @@ pipeline {
     IMAGE_TAG = ''
     SONAR_SERVER_NAME = 'MySonarServer'
     SONAR_HOST_URL = 'http://localhost:9000'
+    
   }
 
-  stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-        script {
-          // Determine image tag based on branch or PR
-          if (env.BRANCH_NAME == 'main') {
-            env.IMAGE_TAG = 'latest'
-          } else if (env.BRANCH_NAME == 'staging') {
-            env.IMAGE_TAG = 'staging'
-          } else if (env.BRANCH_NAME == 'develop') {
-            env.IMAGE_TAG = 'dev'
-          } else if (env.CHANGE_ID) {
-            env.IMAGE_TAG = "pr-${env.CHANGE_ID}"
-          } else {
-            // For other branches, use branch name as tag (sanitize if needed)
-            env.IMAGE_TAG = env.BRANCH_NAME.replaceAll('/', '-').toLowerCase()
-          }
-          env.IMAGE_NAME = "${env.IMAGE_BASE}:${env.IMAGE_TAG}"
-          echo "Determined IMAGE_NAME: ${env.IMAGE_NAME}"
-        }
-      }
-    }
     stage('Build - Unit Tests') {
       steps {
         script {
@@ -84,7 +62,7 @@ pipeline {
 
     stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQube') { 
+                withSonarQubeEnv('MySonarServer') {
                     sh """
                         mvn sonar:sonar \
                           -Dsonar.projectKey=my-project \
@@ -96,7 +74,6 @@ pipeline {
                 }
             }
         }
-
 
     stage('Integration Tests') {
       steps {
