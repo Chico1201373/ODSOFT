@@ -4,9 +4,8 @@ pipeline {
   environment {
     APP_NAME   = "books-api"
     
-    IMAGE_BASE = 'odsoft/books-api'
-    TAG = "${env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME}"
-    IMAGE_NAME = "${IMAGE_BASE}:${TAG}"
+    IMAGE_BASE = 'chico0706/books-api'
+    IMAGE_NAME = "${IMAGE_BASE}:latest"
 
     SONAR_HOST = "http://localhost:9000"
     SONARQUBE_ENV = 'MySonarServer'
