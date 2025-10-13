@@ -78,14 +78,14 @@ pipeline {
   }
   steps {
     script {
-      echo "🪣 Pushing image: ${IMAGE_NAME}:${TAG}"
+      echo "🪣 Pushing image: ${IMAGE_NAME}"
     }
     withCredentials([usernamePassword(credentialsId: 'docker-creds',
                                       usernameVariable: 'DOCKER_USER',
                                       passwordVariable: 'DOCKER_PASS')]) {
       sh '''
         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-        docker push ${IMAGE_NAME}:${TAG}
+        docker push ${IMAGE_NAME}
       '''
     }
   }
