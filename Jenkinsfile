@@ -8,13 +8,6 @@ pipeline {
     disableConcurrentBuilds()
   }
 
-  // Request tools from Jenkins global config. Ensure you have a JDK 21 installation
-  // named 'jdk21' and a Maven installation named 'maven-3.9.6' (or update names as configured).
-  tools {
-    jdk 'jdk17'
-    maven 'maven-3.9.6'
-  }
-
   environment {
     APP_NAME    = 'books-api'
     // Docker registry settings (override with Jenkins credentials/vars)
@@ -53,32 +46,21 @@ pipeline {
 
     stage('Build - Unit Tests') {
       steps {
-        // Use Maven if pom.xml exists, otherwise try Gradle
         script {
-          if (fileExists('pom.xml')) {
-            sh 'mvn -B -V -DskipTests=false clean verify'
-            // try to generate JaCoCo XML report (if configured in pom)
-            sh 'mvn jacoco:report || true'
-            // detect common jacoco xml paths for Maven
-            if (fileExists('target/site/jacoco/jacoco.xml')) {
-              env.JACOCO_PATH = 'target/site/jacoco/jacoco.xml'
-            } else if (fileExists('target/jacoco.xml')) {
-              env.JACOCO_PATH = 'target/jacoco.xml'
-            } else {
-              echo 'No JaCoCo XML found for Maven in target/; Sonar coverage may be unavailable.'
-            }
-          } else if (fileExists('build.gradle')) {
-            sh './gradlew clean build jacocoTestReport --no-daemon || true'
-            // detect common jacoco xml paths for Gradle
-            if (fileExists('build/reports/jacoco/test/jacocoTestReport.xml')) {
-              env.JACOCO_PATH = 'build/reports/jacoco/test/jacocoTestReport.xml'
-            } else if (fileExists('build/jacoco/test/jacocoTestReport.xml')) {
-              env.JACOCO_PATH = 'build/jacoco/test/jacocoTestReport.xml'
-            } else {
-              echo 'No JaCoCo XML found for Gradle in build/; Sonar coverage may be unavailable.'
-            }
+          if (!fileExists('pom.xml')) {
+            error 'Maven build required: pom.xml not found.'
+          }
+          // Maven build and tests
+          sh 'mvn -B -V -DskipTests=false clean verify'
+          // generate JaCoCo XML report (if plugin present in pom)
+          sh 'mvn jacoco:report || true'
+          // detect common jacoco xml paths for Maven
+          if (fileExists('target/site/jacoco/jacoco.xml')) {
+            env.JACOCO_PATH = 'target/site/jacoco/jacoco.xml'
+          } else if (fileExists('target/jacoco.xml')) {
+            env.JACOCO_PATH = 'target/jacoco.xml'
           } else {
-            error 'No recognized build file (pom.xml or build.gradle) found.'
+            echo 'No JaCoCo XML found in target/; Sonar coverage may be unavailable.'
           }
         }
       }
@@ -100,7 +82,7 @@ pipeline {
     }
 
     stage('Static Analysis - SonarQube') {
-      when { expression { fileExists('pom.xml') || fileExists('build.gradle') } }
+      when { expression { fileExists('pom.xml') } }
       steps {
         // Use the SonarQube server name provided as a parameter so it's configurable per-job
         withSonarQubeEnv(params.SONAR_SERVER_NAME) {
@@ -119,12 +101,7 @@ pipeline {
                   echo 'No JaCoCo report detected; continuing without sonar.coverage.jacoco.xmlReportPaths'
                 }
 
-                if (fileExists('pom.xml')) {
-                  sh "mvn sonar:sonar -Dsonar.login=$SONAR_TOKEN -Dsonar.host.url=$SONAR_HOST_URL ${coverageArg}"
-                } else {
-                  // Gradle property for sonar plugin is the same; pass path via system property
-                  sh "./gradlew sonarqube -Dsonar.login=$SONAR_TOKEN -Dsonar.host.url=$SONAR_HOST_URL ${coverageArg}"
-                }
+                sh "mvn sonar:sonar -Dsonar.login=$SONAR_TOKEN -Dsonar.host.url=$SONAR_HOST_URL ${coverageArg}"
 
                 // Wait for SonarQube Quality Gate result (requires SonarQube plugin in Jenkins)
                 timeout(time: 5, unit: 'MINUTES') {
@@ -159,16 +136,14 @@ pipeline {
         script {
           if (fileExists('pom.xml')) {
             sh 'mvn -B verify -DskipUnitTests=true'
-          } else if (fileExists('build.gradle')) {
-            sh './gradlew integrationTest || true'
           } else {
-            echo 'Skipping integration tests (no build file)'
+            echo 'Skipping integration tests (no pom.xml found)'
           }
         }
       }
       post {
         always {
-          junit allowEmptyResults: true, testResults: '**/target/failsafe-reports/*.xml,**/build/**/reports/**/integrationTest/*.xml'
+          junit allowEmptyResults: true, testResults: '**/target/failsafe-reports/*.xml'
         }
       }
     }
