@@ -176,7 +176,6 @@
         <id>integration-tests</id>
         <build>
             <plugins>
-                <!-- Plugin para rodar Integration Tests -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
@@ -189,17 +188,12 @@
                             </goals>
                         </execution>
                     </executions>
-                    <configuration>
-                        <!-- Padrão: rodar testes que terminam em *IT.java -->
-                        <includes>
-                            <include>**/*IT.java</include>
-                        </includes>
-                    </configuration>
                 </plugin>
             </plugins>
         </build>
     </profile>
 </profiles>
+
 
 
 </project>
