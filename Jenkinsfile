@@ -9,6 +9,8 @@ pipeline {
 
   environment {
     APP_NAME    = 'books-api'
+    SONAR_TOKEN = credentials('SONAR_TOKEN') // Jenkins credential ID
+
     // Docker registry settings (override with Jenkins credentials/vars)
     // Default registry; override by editing this file or setting env in Jenkins job
     DOCKER_CREDENTIALS = 'docker-creds'
@@ -19,7 +21,6 @@ pipeline {
   parameters {
     booleanParam(name: 'PROMOTE_TO_PROD', defaultValue: false, description: 'When true and on staging, promote the built image to production tag')
     string(name: 'IMAGE_TAG', defaultValue: '', description: 'Optional override for image tag (defaults to branch or build number)')
-    string(name: 'SONAR_SERVER_NAME', defaultValue: 'MySonarServer', description: 'Name of the SonarQube server configured in Jenkins (Manage Jenkins → Configure System → SonarQube servers)')
   }
 
   stages {
@@ -79,55 +80,21 @@ pipeline {
       }
     }
 
-    stage('Static Analysis - SonarQube') {
-      when { expression { fileExists('pom.xml') } }
-      steps {
-        // Use the SonarQube server name provided as a parameter so it's configurable per-job
-        withSonarQubeEnv(params.SONAR_SERVER_NAME) {
-          // bind token just for the sonar call
-          withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-            script {
-              echo "SONAR_SERVER=${params.SONAR_SERVER_NAME}"
-              echo "SONAR_HOST_URL=${env.SONAR_HOST_URL}"
-              try {
-                // Pass JaCoCo XML report path to Sonar if available
-                def coverageArg = ''
-                if (env.JACOCO_PATH) {
-                  coverageArg = "-Dsonar.coverage.jacoco.xmlReportPaths=${env.JACOCO_PATH}"
-                  echo "Using JaCoCo report: ${env.JACOCO_PATH}"
-                } else {
-                  echo 'No JaCoCo report detected; continuing without sonar.coverage.jacoco.xmlReportPaths'
+    stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') { // Name from Jenkins config
+                    sh """
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=my-project \
+                          -Dsonar.host.url=${env.SONAR_HOST_URL} \
+                          -Dsonar.login=${SONAR_TOKEN} \
+                          -Dsonar.java.coveragePlugin=jacoco \
+                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                    """
                 }
-
-                sh "mvn sonar:sonar -Dsonar.login=$SONAR_TOKEN -Dsonar.host.url=$SONAR_HOST_URL ${coverageArg}"
-
-                // Wait for SonarQube Quality Gate result (requires SonarQube plugin in Jenkins)
-                timeout(time: 5, unit: 'MINUTES') {
-                  script {
-                    def qg = waitForQualityGate(abortPipeline: false)
-                    if (qg == null) {
-                      echo 'No quality gate result available yet.'
-                    } else {
-                      echo "Sonar Quality Gate status: ${qg.status}"
-                      if (qg.status != 'OK') {
-                        unstable "Quality gate not OK: ${qg.status}"
-                      }
-                    }
-                  }
-                }
-
-              } catch (err) {
-                // Don't hard fail the whole pipeline for Sonar misconfigurations — surface useful debug info instead
-                echo "ERROR running SonarQube analysis: ${err}"
-                echo 'Common causes: SONAR_TOKEN missing/wrong, Sonar server misconfigured in Jenkins, Sonar server unreachable from agent.'
-                echo 'Check Manage Jenkins → Configure System → SonarQube servers, and confirm SONAR_TOKEN credential id.'
-                currentBuild.result = 'UNSTABLE'
-              }
             }
-          }
         }
-      }
-    }
+
 
     stage('Integration Tests') {
       steps {
