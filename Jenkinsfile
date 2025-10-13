@@ -1,13 +1,23 @@
 pipeline {
   agent any
 
+  options {
+    buildDiscarder(logRotator(daysToKeepStr: '30', numToKeepStr: '50'))
+    timestamps()
+    disableConcurrentBuilds()
+  }
+
+  tools {
+    // Ensure these tool names match the Global Tool Configuration in Jenkins
+    maven 'maven-3.9.6'
+    jdk 'jdk17'
+  }
+
   environment {
     // Application
     APP_NAME = 'books-api'
 
-    // Maven/Java tools (ensure Jenkins installs these tools)
-    MAVEN_HOME = tool name: 'maven-3.9.6', type: 'maven'
-    JAVA_HOME = tool name: 'jdk17', type: 'jdk'
+  // Maven/JDK tools are provided via the 'tools' block above
 
     // Sonar
     SONAR_TOKEN = credentials('SONAR_TOKEN')
@@ -24,10 +34,16 @@ pipeline {
   PROD_COMPOSE_FILE = 'docker-compose.prod.yml'
   }
 
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
 
     stage('Build - Unit Tests') {
       steps {
-        sh '${MAVEN_HOME}/bin/mvn -B -V -DskipTests=false clean test'
+        sh 'mvn -B -V -DskipTests=false clean test'
       }
       post {
         always {
@@ -39,7 +55,7 @@ pipeline {
 
     stage('JaCoCo Coverage') {
       steps {
-        sh '${MAVEN_HOME}/bin/mvn jacoco:prepare-agent test jacoco:report || true'
+        sh 'mvn jacoco:prepare-agent test jacoco:report || true'
       }
       post {
         always {
@@ -52,7 +68,7 @@ pipeline {
     stage('Mutation tests (PIT)') {
       steps {
         // run PIT mutation tests; requires PIT plugin configured in pom
-        sh '${MAVEN_HOME}/bin/mvn org.pitest:pitest-maven:mutationCoverage || true'
+        sh 'mvn org.pitest:pitest-maven:mutationCoverage || true'
       }
       post {
         always {
@@ -64,7 +80,7 @@ pipeline {
     stage('Static Analysis - SonarQube') {
       steps {
         withSonarQubeEnv(SONAR_SERVER) {
-          sh "${MAVEN_HOME}/bin/mvn sonar:sonar -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.login=${SONAR_TOKEN} -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml || true"
+          sh "mvn sonar:sonar -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.login=${SONAR_TOKEN} -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml || true"
         }
       }
     }
@@ -90,7 +106,7 @@ pipeline {
 
     stage('Integration Tests') {
       steps {
-        sh '${MAVEN_HOME}/bin/mvn verify -DskipUnitTests=true'
+        sh 'mvn verify -DskipUnitTests=true'
       }
       post {
         always {
@@ -101,7 +117,7 @@ pipeline {
 
     stage('Build Artifact') {
       steps {
-        sh '${MAVEN_HOME}/bin/mvn -B -V -DskipTests=true package'
+        sh 'mvn -B -V -DskipTests=true package'
         archiveArtifacts artifacts: '${ARTIFACT_GLOB}', allowEmptyArchive: false
       }
     }
@@ -157,7 +173,7 @@ pipeline {
         }
       }
     }
-  
+  }
 
   post {
     success {
