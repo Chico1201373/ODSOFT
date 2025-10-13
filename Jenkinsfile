@@ -25,15 +25,13 @@ pipeline {
             }
         }
 
-        stage('Static Code Analysis') {
-            steps {
-                // Use SONAR_TOKEN from Jenkins Credentials
-                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_AUTH_TOKEN')]) {
-                    sh "mvn sonar:sonar -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.login=$SONAR_AUTH_TOKEN"
-                }
-            }
+        stage('SonarQube Analysis') {
+    steps {
+        withSonarQubeEnv('SonarQubeServer') {
+            sh 'mvn clean verify sonar:sonar -Dsonar.projectKey=myapp -Dsonar.login=$SONAR_AUTH_TOKEN'
         }
-
+    }
+}
         stage('Unit Testing') {
             steps {
                 sh 'mvn test'
