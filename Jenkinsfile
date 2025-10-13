@@ -1,12 +1,6 @@
 pipeline {
   agent any
 
-  options {
-    buildDiscarder(logRotator(daysToKeepStr: '30', numToKeepStr: '50'))
-    timestamps()
-    disableConcurrentBuilds()
-  }
-
   environment {
     // Application
     APP_NAME = 'books-api'
