@@ -16,7 +16,7 @@ pipeline {
 
         stage('Build & Package') {
             steps {
-                sh 'mvn clean package'
+                sh 'mvn clean install'
             }
             post {
                 success {
@@ -93,7 +93,7 @@ pipeline {
                 expression { fileExists('Dockerfile') }
             }
             steps {
-                sh "docker run -d -p 8080:8080 ${DOCKER_IMAGE}"
+                sh "docker run -d -p 8090:8090 ${DOCKER_IMAGE}"
             }
         }
     }
