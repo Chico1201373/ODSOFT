@@ -2,19 +2,23 @@ pipeline {
   agent any
 
   environment {
-    APP_NAME     = 'books-api'
-    IMAGE_BASE   = 'chico0706/books-api'
+    APP_NAME   = "books-api"
+
+    // Base image name (Docker Hub repo)
+    IMAGE_BASE = 'chico0706/books-api'
+    // Tag based on branch
+    TAG = "${env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME}"
+    IMAGE_NAME = "${IMAGE_BASE}:${TAG}"
+
+    SONAR_HOST = "http://localhost:9000"
     SONARQUBE_ENV = 'MySonarServer'
-    SONAR_HOST   = 'http://localhost:9000'
-    SONAR_TOKEN  = credentials('SONAR_TOKEN')
+    SONAR_TOKEN = credentials('SONAR_TOKEN')
   }
 
   stages {
 
-    /* 🔹 Common stages for all branches */
     stage('Build & Unit Test') {
       steps {
-        echo '🔨 Building and running unit tests...'
         sh 'mvn -B clean package'
         sh 'mvn test'
       }
@@ -27,103 +31,106 @@ pipeline {
 
     stage('Static Code Analysis (SonarQube)') {
       steps {
-        echo '🔎 Running static code analysis...'
-        withSonarQubeEnv("${SONARQUBE_ENV}") {
-        sh """
-        mvn sonar:sonar \
-        -Dsonar.projectKey=ODSOFT \
-        -Dsonar.host.url=${SONAR_HOST} \
-        -Dsonar.login=${SONAR_TOKEN} \
-        -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-        """
+        withSonarQubeEnv('MySonarServer') {
+          withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+            sh '''
+              mvn sonar:sonar \
+                -Dsonar.projectKey=ODSOFT \
+                -Dsonar.host.url=$SONAR_HOST_URL \
+                -Dsonar.login=$SONAR_TOKEN \
+                -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+            '''
+          }
         }
-    }
       }
+    }
 
-stage('Integration Tests') {
-  steps {
-    echo "🧪 Running integration tests..."
-    sh "mvn verify -DskipUnitTests=true"
+    stage('Integration Tests') {
+      steps {
+        sh 'mvn verify -DskipUnitTests=true'
+      }
+      post {
+        always {
+          script {
+            if (fileExists('target/failsafe-reports')) {
+              junit 'target/failsafe-reports/*.xml'
+            } else {
+              echo "No Failsafe reports found, skipping."
+            }
+          }
+        }
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        script {
+          echo "🛠️ Building image ${IMAGE_NAME}"
+          sh "docker build -t ${IMAGE_NAME} ."
+        }
+      }
+    }
+
+    stage('Push Docker Image') {
+      when {
+        anyOf {
+          branch 'staging'
+          branch 'main'
+        }
+      }
+      steps {
+        script {
+          echo "🪣 Pushing image: ${IMAGE_NAME}"
+        }
+        withCredentials([usernamePassword(credentialsId: 'docker-creds',
+                                          usernameVariable: 'DOCKER_USER',
+                                          passwordVariable: 'DOCKER_PASS')]) {
+          sh '''
+            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+            docker push ${IMAGE_NAME}
+          '''
+        }
+      }
+    }
+
+    stage('Deploy to Dev') {
+      when { branch 'develop' }
+      steps {
+        sh """
+          echo "🚀 Deploying locally to Dev environment"
+          docker-compose -f docker-compose.dev.yml up -d --build
+        """
+      }
+    }
+
+    stage('Deploy to Staging') {
+      when { branch 'staging' }
+      steps {
+        sh """
+          echo "🚀 Deploying to Staging environment"
+          docker-compose -f docker-compose.staging.yml up -d --build
+        """
+      }
+    }
+
+    stage('Promote to Production') {
+      when { branch 'main' }
+      steps {
+        input message: "Deploy to production?", ok: "Deploy"
+        sh """
+          echo "🚀 Deploying to Production environment"
+          docker-compose -f docker-compose.prod.yml up -d --build
+        """
+      }
+    }
   }
+
   post {
-    always {
-      script {
-        if (fileExists('target/failsafe-reports')) {
-          junit 'target/failsafe-reports/*.xml'
-        } else {
-          echo 'No Failsafe reports found, skipping.'
-        }
-      }
+    success {
+      echo "✅ ${env.BRANCH_NAME} pipeline completed successfully"
+    }
+    failure {
+      echo "❌ ${env.BRANCH_NAME} pipeline failed"
     }
   }
-}
-
-/* 🔹 Build Image for all branches */
-stage('Build Docker Image') {
-  steps {
-    script {
-      def imageTag = env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME
-      env.IMAGE_NAME = "${IMAGE_BASE}:${imageTag}"  // <--- double quotes para interpolar corretamente
-      echo "🛠️ Building image ${env.IMAGE_NAME}"
-      sh "docker build -t ${env.IMAGE_NAME} ."
-    }
-  }
-}
-
-/* 🔹 Push image only for staging & prod */
-stage('Push Docker Image') {
-  when {
-    anyOf { branch 'staging'; branch 'main' }
-  }
-  steps {
-    script {
-      echo "🪣 Pushing image ${env.IMAGE_NAME}"
-      withCredentials([usernamePassword(credentialsId: 'docker-creds',
-                                        usernameVariable: 'DOCKER_USER',
-                                        passwordVariable: 'DOCKER_PASS')]) {
-        sh """
-          echo "\$DOCKER_PASS" | docker login -u "\$DOCKER_USER" --password-stdin
-          docker push ${env.IMAGE_NAME}
-        """
-      }
-    }
-  }
-}
-
-/* 🔹 DEV environment */
-stage('Deploy to Dev') {
-  when { branch 'develop' }
-  steps {
-    echo "🚀 Deploying to Dev environment..."
-    sh "docker-compose -f docker-compose.dev.yml up -d --build"
-  }
-}
-
-/* 🔹 STAGING environment */
-stage('Deploy to Staging') {
-  when { branch 'staging' }
-  steps {
-    echo "🚀 Deploying to Staging environment..."
-    sh "docker-compose -f docker-compose.staging.yml up -d --build"
-  }
-}
-
-/* 🔹 PRODUCTION environment */
-stage('Promote to Production') {
-  when { branch 'main' }
-  steps {
-    input message: "Deploy to production?", ok: "Deploy"
-    echo "🚀 Deploying to Production environment..."
-    sh "docker-compose -f docker-compose.prod.yml up -d --build"
-  }
-}
-
-post {
-  success {
-    echo "✅ Pipeline for branch ${env.BRANCH_NAME} completed successfully!"
-  }
-  failure {
-    echo "❌ Pipeline for branch ${env.BRANCH_NAME} failed!"
-  }
-}
 }
