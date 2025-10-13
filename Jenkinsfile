@@ -26,13 +26,6 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-            when {
-                anyOf {
-                    branch 'develop'
-                    branch 'staging'
-                    branch 'main'
-                }
-            }
             steps {
                 withSonarQubeEnv('SonarQubeServer') {
                     sh 'mvn clean verify sonar:sonar -Dsonar.projectKey=myapp -Dsonar.login=$SONAR_TOKEN'
