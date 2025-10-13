@@ -104,14 +104,21 @@ pipeline {
                 // Wait for quality gate result (requires SonarQube plugin + webhook)
                 try {
                   timeout(time: 5, unit: 'MINUTES') {
-                    def qg = waitForQualityGate(abortPipeline: false)
-                    if (qg == null) {
-                      echo 'No quality gate result available.'
-                    } else {
-                      echo "Sonar Quality Gate status: ${qg.status}"
-                      if (qg.status != 'OK') {
-                        unstable "Quality gate not OK: ${qg.status}"
+                    try {
+                      def qg = waitForQualityGate(abortPipeline: false)
+                      if (qg == null) {
+                        echo 'No quality gate result available.'
+                      } else {
+                        echo "Sonar Quality Gate status: ${qg.status}"
+                        if (qg.status != 'OK') {
+                          unstable "Quality gate not OK: ${qg.status}"
+                        }
                       }
+                    } catch (java.lang.IllegalStateException ise) {
+                      // This happens when there was no prior analysis in this pipeline execution
+                      echo "waitForQualityGate failed: ${ise}. This usually means the Sonar scanner did not publish an analysis for this run."
+                      echo 'Possible causes: scanner failed, Sonar webhook not configured, or analysis submitted to a different Sonar project/key.'
+                      currentBuild.result = 'UNSTABLE'
                     }
                   }
                 } catch (err) {
