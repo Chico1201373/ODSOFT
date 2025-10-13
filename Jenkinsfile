@@ -72,32 +72,27 @@ pipeline {
   
  stage('Push Docker Image') {
   when {
-        anyOf {
-          branch 'staging'
-          branch 'main'
-        }
-      }
+    anyOf {
+      branch 'staging'
+      branch 'main'
+    }
+  }
   steps {
     script {
-      echo "Pushing image: ${IMAGE_NAME}:${TAG}"
+      echo "🪣 Pushing image: ${IMAGE_NAME}:${TAG}"
     }
     withCredentials([usernamePassword(credentialsId: 'docker-creds',
-                                  usernameVariable: 'DOCKER_USER',
-                                  passwordVariable: 'DOCKER_PASS')]) {
-        sh '''
-        set +e
+                                      usernameVariable: 'DOCKER_USER',
+                                      passwordVariable: 'DOCKER_PASS')]) {
+      sh '''
         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+        docker tag ${IMAGE_NAME}:${TAG} ${IMAGE_NAME}:${TAG}
         docker push ${IMAGE_NAME}:${TAG}
-        STATUS=$?
-        if [ $STATUS -ne 0 ]; then
-          echo "⚠️ Docker push returned code $STATUS — probably a warning, continuing..."
-        fi
-        exit 0
       '''
-}
-
+    }
   }
 }
+
 
 
     stage('Deploy to Dev') {
