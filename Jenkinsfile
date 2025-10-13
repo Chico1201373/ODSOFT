@@ -2,21 +2,19 @@ pipeline {
   agent any
 
   environment {
-    APP_NAME   = "books-api"
-    
-    IMAGE_BASE = 'chico0706/books-api'
-    IMAGE_NAME = "${IMAGE_BASE}:latest"
-
-    SONAR_HOST = "http://localhost:9000"
-    SONARQUBE_ENV = 'MySonarServer'
-    SONAR_TOKEN = credentials('SONAR_TOKEN')
-
+    APP_NAME     = "books-api"
+    IMAGE_BASE   = "chico0706/books-api"
+    SONARQUBE_ENV = "MySonarServer"
+    SONAR_HOST   = "http://localhost:9000"
+    SONAR_TOKEN  = credentials('SONAR_TOKEN')
   }
 
   stages {
 
+    /* 🔹 Common stages for all branches */
     stage('Build & Unit Test') {
       steps {
+        echo "🔨 Building and running unit tests..."
         sh 'mvn -B clean package'
         sh 'mvn test'
       }
@@ -28,109 +26,106 @@ pipeline {
     }
 
     stage('Static Code Analysis (SonarQube)') {
-  steps {
-    withSonarQubeEnv('MySonarServer') {
-      withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-        sh '''
-          mvn sonar:sonar \
-            -Dsonar.projectKey=ODSOFT \
-            -Dsonar.host.url=$SONAR_HOST_URL \
-            -Dsonar.login=$SONAR_TOKEN \
-            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-        '''
+      steps {
+        echo "🔎 Running static code analysis..."
+        withSonarQubeEnv("${SONARQUBE_ENV}") {
+          sh """
+            mvn sonar:sonar \
+              -Dsonar.projectKey=ODSOFT \
+              -Dsonar.host.url=${SONAR_HOST} \
+              -Dsonar.login=${SONAR_TOKEN} \
+              -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+          """
+        }
       }
     }
-  }
-}
 
     stage('Integration Tests') {
       steps {
+        echo "🧪 Running integration tests..."
         sh 'mvn verify -DskipUnitTests=true'
       }
       post {
         always {
-            script {
-                if (fileExists('target/failsafe-reports')) {
-                    junit 'target/failsafe-reports/*.xml'
-                } else {
-                    echo "No Failsafe reports found, skipping."
-                }
+          script {
+            if (fileExists('target/failsafe-reports')) {
+              junit 'target/failsafe-reports/*.xml'
+            } else {
+              echo "No Failsafe reports found, skipping."
             }
+          }
         }
+      }
     }
+
+    /* 🔹 Build Image for all branches */
+    stage('Build Docker Image') {
+      steps {
+        script {
+          def imageTag = env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME
+          env.IMAGE_NAME = "${IMAGE_BASE}:${imageTag}"
+          echo "🛠️ Building image ${IMAGE_NAME}"
+          sh "docker build -t ${IMAGE_NAME} ."
+        }
+      }
     }
 
-  stage('Build Docker Image') {
-    steps {
-      script {
-        echo "🛠️ Building image ${IMAGE_NAME}"
-        sh "docker build -t ${IMAGE_NAME} ."
-      }}}
-
- stage('Push Docker Image') {
-  when {
-    anyOf {
-      branch 'staging'
-      branch 'main'
-      branch 'develop'
+    /* 🔹 Push image only for staging & prod */
+    stage('Push Docker Image') {
+      when {
+        anyOf { branch 'staging'; branch 'main' }
+      }
+      steps {
+        script {
+          echo "🪣 Pushing image ${IMAGE_NAME}"
+          withCredentials([usernamePassword(credentialsId: 'docker-creds',
+                                            usernameVariable: 'DOCKER_USER',
+                                            passwordVariable: 'DOCKER_PASS')]) {
+            sh """
+              echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+              docker push ${IMAGE_NAME}
+            """
+          }
+        }
+      }
     }
-  }
-  steps {
-    script {
-      echo "🪣 Pushing image: ${IMAGE_NAME}"
-    }
-    withCredentials([usernamePassword(credentialsId: 'docker-creds',
-                                      usernameVariable: 'DOCKER_USER',
-                                      passwordVariable: 'DOCKER_PASS')]) {
-      sh '''
-        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-        docker push ${IMAGE_NAME}
-      '''
-    }
-  }
-}
 
-
-
-
+    /* 🔹 DEV environment */
     stage('Deploy to Dev') {
       when { branch 'develop' }
       steps {
-        sh """
-          echo "🚀 Deploying to Dev environment"
-          docker-compose -f docker-compose.dev.yml up -d --build
-        """
+        echo "🚀 Deploying to Dev environment..."
+        sh "docker-compose -f docker-compose.dev.yml up -d --build"
       }
     }
 
+    /* 🔹 STAGING environment */
     stage('Deploy to Staging') {
       when { branch 'staging' }
       steps {
-        sh """
-          echo "🚀 Deploying to Staging environment"
-          docker-compose -f docker-compose.staging.yml up -d --build
-        """
+        echo "🚀 Deploying to Staging environment..."
+        sh "docker-compose -f docker-compose.staging.yml up -d --build"
       }
     }
 
+    /* 🔹 PRODUCTION environment */
     stage('Promote to Production') {
       when { branch 'main' }
       steps {
         input message: "Deploy to production?", ok: "Deploy"
-        sh """
-          echo "🚀 Deploying to Production environment"
-          docker-compose -f docker-compose.prod.yml up -d --build
-        """
+        echo "🚀 Deploying to Production environment..."
+        sh "docker-compose -f docker-compose.prod.yml up -d --build"
       }
     }
-  }
+
+  } // end stages
 
   post {
     success {
-      echo "✅ ${env.BRANCH_NAME} pipeline completed successfully"
+      echo "✅ Pipeline for branch '${env.BRANCH_NAME}' completed successfully!"
     }
     failure {
-      echo "❌ ${env.BRANCH_NAME} pipeline failed"
+      echo "❌ Pipeline for branch '${env.BRANCH_NAME}' failed!"
     }
   }
 }
