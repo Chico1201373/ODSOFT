@@ -52,13 +52,17 @@ pipeline {
             }
         }
 
-        stage('Integration Testing') {
+        stage('Integration Tests') {
     steps {
         sh 'mvn verify -Pintegration-tests'
     }
     post {
         always {
             junit '**/target/failsafe-reports/*.xml'
+            
+            jacoco execPattern: '**/target/jacoco.exec', 
+                   classPattern: '**/target/classes', 
+                   sourcePattern: '**/src/main/java'
         }
     }
 }
