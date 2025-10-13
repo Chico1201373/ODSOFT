@@ -24,7 +24,6 @@ pipeline {
   PROD_COMPOSE_FILE = 'docker-compose.prod.yml'
   }
 
-  stages {
 
     stage('Build - Unit Tests') {
       steps {
@@ -158,7 +157,7 @@ pipeline {
         }
       }
     }
-  }
+  
 
   post {
     success {
