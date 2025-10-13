@@ -3,8 +3,8 @@ pipeline {
 
   environment {
     APP_NAME   = "books-api"
-    IMAGE_BASE = "odsoft/books-api"
-    TAG        = "${env.GIT_COMMIT.take(7)}"
+  IMAGE_NAME = 'odsoft/books-api'
+  TAG = "${env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME}"
 
 
     SONAR_HOST = "http://localhost:9000"
@@ -75,6 +75,7 @@ pipeline {
     anyOf {
       branch 'staging'
       branch 'main'
+      branch 'develop'
     }
   }
   steps {
@@ -86,12 +87,12 @@ pipeline {
                                       passwordVariable: 'DOCKER_PASS')]) {
       sh '''
         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-        docker tag ${IMAGE_NAME}:${TAG} ${IMAGE_NAME}:${TAG}
         docker push ${IMAGE_NAME}:${TAG}
       '''
     }
   }
 }
+
 
 
 
