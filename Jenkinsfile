@@ -121,11 +121,11 @@ pipeline {
   } // end stages
 
   post {
-    success {
-      echo '✅ Pipeline for branch '${env.BRANCH_NAME}' completed successfully!'
-    }
-    failure {
-      echo '❌ Pipeline for branch '${env.BRANCH_NAME}' failed!'
-    }
+  success {
+    echo "✅ Pipeline for branch ${env.BRANCH_NAME} completed successfully!"
   }
+  failure {
+    echo "❌ Pipeline for branch ${env.BRANCH_NAME} failed!"
+  }
+}
 }
