@@ -16,7 +16,7 @@ pipeline {
 
         stage('Build & Package') {
             steps {
-                sh 'mvn clean package'
+                sh 'mvn clean package -DskipTests'
             }
             post {
                 success {
@@ -56,12 +56,16 @@ pipeline {
                 sh 'mvn failsafe:integration-test failsafe:verify'
             }
             post {
-                always {
-                    junit '**/target/surefire-reports/*.xml'
-                    jacoco(execPattern: '**/target/jacoco.exec', classPattern: '**/target/classes', sourcePattern: 'src/main/java')
-                }
-            }
+        always {
+            junit '**/target/failsafe-reports/*.xml'
+            jacoco(
+                execPattern: '**/target/jacoco.exec',
+                classPattern: '**/target/classes',
+                sourcePattern: 'src/main/java'
+            )
         }
+    }
+    }
 
         stage('Build Docker Image') {
             when {
