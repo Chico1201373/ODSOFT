@@ -29,15 +29,19 @@ services:
           memory: 8g
 
   jenkins:
-    image: jenkins/jenkins:lts
+    build:
+      context: .
+      dockerfile: Dockerfile.jenkins   
     container_name: jenkins
     user: root
+    environment:
+      - TZ=Europe/Lisbon
     ports:
-      - "8082:8080"   # Jenkins interno 8080 → externo 8082
-      - "50000:50000" # comunicação entre Jenkins agents
+      - "8082:8080"
+      - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock # permite Jenkins usar Docker host
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - test-network
     restart: unless-stopped
@@ -46,7 +50,7 @@ services:
     image: sonarqube:latest
     container_name: sonarqube
     ports:
-      - "9000:9000" # acesso via http://localhost:9000
+      - "9000:9000" #http://localhost:9000
     environment:
       SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
     volumes:
