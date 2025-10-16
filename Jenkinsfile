@@ -53,7 +53,7 @@ pipeline {
 
         stage('Integration Tests') {
             steps {
-                sh 'mvn verify'
+                sh 'mvn failsafe:integration-test failsafe:verify'
             }
             post {
                 always {
