@@ -46,7 +46,7 @@ pipeline {
                         tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco/jacoco.xml']],
                         id: 'jacoco-unit',
                         name: 'JaCoCo Unit Coverage',
-                        sourceCodeRetention: 'ARCHIVE',
+                        // sourceCodeRetention: 'ARCHIVE',
                         sourcePaths: ['src/main/java', 'target/generated-sources/annotations'],
                         sourceCodeRetention: 'LAST_BUILD',
                         qualityGates: [
@@ -93,7 +93,7 @@ pipeline {
                         name: 'JaCoCo IT Coverage',
                         sourceCodeRetention: 'ARCHIVE',
                         sourcePaths: ['src/main/java', 'target/generated-sources/annotations'],
-                        sourceCodeRetention: 'LAST_BUILD',
+                        // sourceCodeRetention: 'LAST_BUILD',
                         qualityGates: [
                         [metric: 'LINE', threshold: 70.0, baseline: 'PROJECT', unstable: true],
                         [metric: 'BRANCH', threshold: 60.0, baseline: 'PROJECT', unstable: true]
