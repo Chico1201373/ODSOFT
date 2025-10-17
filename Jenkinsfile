@@ -48,10 +48,10 @@ pipeline {
                         name: 'JaCoCo Unit Coverage',
                         sourceCodeRetention: 'LAST_BUILD',
                         sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
-                        // qualityGates: [
-                        //     [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'NOTE'],
-                        //     [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']
-                        // ]
+                        qualityGates: [
+                            [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'NOTE'],
+                            [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']
+                        ]
                     )
                 }
             }
@@ -69,7 +69,7 @@ pipeline {
                         name: 'PIT Mutation Coverage',
                         sourceCodeRetention: 'LAST_BUILD',
                         sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
-                        // qualityGates: [[metric: 'MUTATION', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']]
+                        qualityGates: [[metric: 'MUTATION', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']]
                     )
                     // archiveArtifacts artifacts: 'target/pit-reports/**', fingerprint: true, onlyIfSuccessful: false
                 }
@@ -90,10 +90,10 @@ pipeline {
                         name: 'JaCoCo IT Coverage',
                         sourceCodeRetention: 'LAST_BUILD',
                         sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
-                        // qualityGates: [
-                        //     [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'NOTE'],
-                        //     [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']
-                        // ]
+                        qualityGates: [
+                            [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'NOTE'],
+                            [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']
+                        ]
                     )
                     // publishHTML([allowMissing: false, alwaysLinkToLastBuild: true, icon: '', keepAll: true, reportDir: 'target/site/jacoco-it', reportFiles: 'index.html', reportName: 'Coverage – IT', reportTitles: '', useWrapperFileDirectly: true])
                 }
