@@ -1,0 +1,12 @@
+FROM jenkins/jenkins:lts
+
+USER root
+
+RUN apt-get update && \
+    apt-get install -y maven curl ca-certificates && \
+    curl -fsSL https://get.docker.com | sh && \
+    apt-get clean
+
+RUN git --version && mvn -version
+
+USER jenkins

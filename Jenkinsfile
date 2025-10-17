@@ -16,7 +16,7 @@ pipeline {
 
         stage('Build & Package') {
             steps {
-                sh 'mvn clean package'
+                sh 'mvn clean package -DskipTests'
             }
             post {
                 success {
@@ -40,7 +40,17 @@ pipeline {
             post {
                 always {
                     junit '**/target/surefire-reports/*.xml'
-                    jacoco(execPattern: '**/target/jacoco.exec', classPattern: '**/target/classes', sourcePattern: 'src/main/java')
+                    recordCoverage(
+                        tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco/jacoco.xml']],
+                        id: 'jacoco-unit',
+                        name: 'JaCoCo Unit Coverage',
+                        sourceCodeRetention: 'LAST_BUILD',
+                        sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
+                        qualityGates: [
+                            [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'NOTE'],
+                            [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']
+                        ]
+                    )
                 }
             }
         }
@@ -49,16 +59,38 @@ pipeline {
             steps {
                 sh 'mvn org.pitest:pitest-maven:mutationCoverage'
             }
+            post {
+                always {
+                    recordCoverage(
+                        tools: [[parser: 'PIT', pattern: 'target/pit-reports/latest/mutations.xml']],
+                        id: 'pit',
+                        name: 'PIT Mutation Coverage',
+                        sourceCodeRetention: 'LAST_BUILD',
+                        sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
+                        qualityGates: [[metric: 'MUTATION', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']]
+                    )
+                }
+            }
         }
 
         stage('Integration Tests') {
             steps {
-                sh 'mvn verify'
+                sh 'mvn jacoco:prepare-agent-integration failsafe:integration-test failsafe:verify'
             }
             post {
                 always {
-                    junit '**/target/surefire-reports/*.xml'
-                    jacoco(execPattern: '**/target/jacoco.exec', classPattern: '**/target/classes', sourcePattern: 'src/main/java')
+                    junit '**/target/failsafe-reports/*.xml'
+                    recordCoverage(
+                        tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco-it/jacoco.xml']],
+                        id: 'jacoco-it',
+                        name: 'JaCoCo IT Coverage',
+                        sourceCodeRetention: 'LAST_BUILD',
+                        sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
+                        qualityGates: [
+                            [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'NOTE'],
+                            [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']
+                        ]
+                    )
                 }
             }
         }
