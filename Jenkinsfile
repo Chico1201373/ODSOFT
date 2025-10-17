@@ -102,6 +102,27 @@ pipeline {
             }
         }
 
+         stage('Coverage Report') {
+            steps {
+                echo "📊 Generating unified coverage report..."
+                recordCoverage(
+                    tools: [jacoco(name: 'JaCoCo Coverage')],
+                    sourceCodeRetention: 'EVERY_BUILD',
+                    adapters: [
+                        jacocoAdapter('**/target/site/jacoco/jacoco.xml'),
+                        jacocoAdapter('**/target/site/jacoco-it/jacoco.xml'),
+                        jacocoAdapter('*/modules//jacoco.xml') // for multi-module builds
+                    ],
+                    failNoReports: true,
+                    qualityGates: [
+                        [threshold: 80, metric: 'LINE', unstable: true],
+                        [threshold: 70, metric: 'BRANCH', unstable: true]
+                    ]
+                )
+            }
+        }
+
+
         stage('Build Docker Image') {
             when {
                 expression { fileExists('Dockerfile') }
