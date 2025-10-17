@@ -46,12 +46,11 @@ pipeline {
                         tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco/jacoco.xml']],
                         id: 'jacoco-unit',
                         name: 'JaCoCo Unit Coverage',
-                        // sourceCodeRetention: 'ARCHIVE',
-                        sourcePaths: ['src/main/java', 'target/generated-sources/annotations'],
                         sourceCodeRetention: 'LAST_BUILD',
+                        sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
                         qualityGates: [
-                        [metric: 'LINE', threshold: 80.0, baseline: 'PROJECT', unstable: true],
-                        [metric: 'BRANCH', threshold: 70.0, baseline: 'PROJECT', unstable: true]
+                            [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'UNSTABLE'],
+                            [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'UNSTABLE']
                         ]
                     )
                 }
@@ -91,12 +90,11 @@ pipeline {
                         tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco-it/jacoco.xml']],
                         id: 'jacoco-it',
                         name: 'JaCoCo IT Coverage',
-                        sourceCodeRetention: 'ARCHIVE',
-                        sourcePaths: ['src/main/java', 'target/generated-sources/annotations'],
-                        // sourceCodeRetention: 'LAST_BUILD',
+                        sourceCodeRetention: 'LAST_BUILD',
+                        sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
                         qualityGates: [
-                        [metric: 'LINE', threshold: 70.0, baseline: 'PROJECT', unstable: true],
-                        [metric: 'BRANCH', threshold: 60.0, baseline: 'PROJECT', unstable: true]
+                            [metric: 'LINE',   baseline: 'PROJECT', threshold: 70.0, criticality: 'UNSTABLE'],
+                            [metric: 'BRANCH', baseline: 'PROJECT', threshold: 60.0, criticality: 'UNSTABLE']
                         ]
                     )
                     // publishHTML([allowMissing: false, alwaysLinkToLastBuild: true, icon: '', keepAll: true, reportDir: 'target/site/jacoco-it', reportFiles: 'index.html', reportName: 'Coverage – IT', reportTitles: '', useWrapperFileDirectly: true])
