@@ -40,7 +40,8 @@ pipeline {
             post {
                 always {
                     junit '**/target/surefire-reports/*.xml'
-                    jacoco(execPattern: '**/target/jacoco.exec', classPattern: '**/target/classes', sourcePattern: 'src/main/java')
+                    // jacoco(execPattern: '**/target/jacoco.exec', classPattern: '**/target/classes', sourcePattern: 'src/main/java')
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, icon: '', keepAll: false, reportDir: 'target/site/jacoco', reportFiles: 'index.html', reportName: 'Coverage – Unit', reportTitles: '', useWrapperFileDirectly: true])
                 }
             }
         }
@@ -58,7 +59,8 @@ pipeline {
             post {
                 always {
                     junit '**/target/failsafe-reports/*.xml'
-                    jacoco(execPattern: '**/target/jacoco-it.exec', classPattern: '**/target/classes', sourcePattern: 'src/main/java')
+                    // jacoco(execPattern: '**/target/jacoco-it.exec', classPattern: '**/target/classes', sourcePattern: 'src/main/java')
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, icon: '', keepAll: false, reportDir: 'target/site/jacoco-it', reportFiles: 'index.html', reportName: 'Coverage – IT', reportTitles: '', useWrapperFileDirectly: true])
                 }
             }
         }
