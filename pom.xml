@@ -156,6 +156,19 @@
 				</executions>
         	</plugin> 
 
+			<!-- Mutations tests -->
+			<plugin>
+			<groupId>org.pitest</groupId>
+			<artifactId>pitest-maven</artifactId>
+			<version>REPLACE_WITH_LATEST</version>
+			<configuration>
+				<reportsDirectory>${project.build.directory}/pit-reports/latest</reportsDirectory>
+				<outputFormats>
+				<param>HTML</param>
+				<param>XML</param>
+				</outputFormats>
+			</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>

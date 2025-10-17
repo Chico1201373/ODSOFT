@@ -41,7 +41,17 @@ pipeline {
                 always {
                     junit '**/target/surefire-reports/*.xml'
                     // jacoco(execPattern: '**/target/jacoco.exec', classPattern: '**/target/classes', sourcePattern: 'src/main/java')
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: true, icon: '', keepAll: true, reportDir: 'target/site/jacoco', reportFiles: 'index.html', reportName: 'Coverage – Unit', reportTitles: '', useWrapperFileDirectly: true])
+                    // publishHTML([allowMissing: false, alwaysLinkToLastBuild: true, icon: '', keepAll: true, reportDir: 'target/site/jacoco', reportFiles: 'index.html', reportName: 'Coverage – Unit', reportTitles: '', useWrapperFileDirectly: true])
+                    recordCoverage(
+                        tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco/jacoco.xml']],
+                        id: 'jacoco-unit',
+                        name: 'JaCoCo Unit Coverage',
+                        sourceCodeRetention: 'LAST_BUILD',
+                        qualityGates: [
+                        [metric: 'LINE', threshold: 80.0, baseline: 'PROJECT', unstable: true],
+                        [metric: 'BRANCH', threshold: 70.0, baseline: 'PROJECT', unstable: true]
+                        ]
+                    )
                 }
             }
         }
@@ -50,6 +60,21 @@ pipeline {
             steps {
                 sh 'mvn org.pitest:pitest-maven:mutationCoverage'
             }
+            // post {
+            //     always {
+            //         recordCoverage(
+            //             tools: [[parser: 'PIT', pattern: 'target/pit-reports/latest/mutations.xml']],
+            //             id: 'pit',
+            //             name: 'PIT Mutation Coverage',
+            //             sourceCodeRetention: 'LAST_BUILD',
+            //             qualityGates: [
+            //             // Exemple : échouer si le score de mutation < 70%
+            //             [threshold: 70.0, metric: 'MUTATION', baseline: 'PROJECT', unstable: false]
+            //             ]
+            //         )
+            //         archiveArtifacts artifacts: 'target/pit-reports/**', fingerprint: true, onlyIfSuccessful: false
+            //     }
+            // }
         }
 
         stage('Integration Tests') {
@@ -60,7 +85,17 @@ pipeline {
                 always {
                     junit '**/target/failsafe-reports/*.xml'
                     // jacoco(execPattern: '**/target/jacoco-it.exec', classPattern: '**/target/classes', sourcePattern: 'src/main/java')
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: true, icon: '', keepAll: true, reportDir: 'target/site/jacoco-it', reportFiles: 'index.html', reportName: 'Coverage – IT', reportTitles: '', useWrapperFileDirectly: true])
+                    recordCoverage(
+                        tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco-it/jacoco.xml']],
+                        id: 'jacoco-it',
+                        name: 'JaCoCo IT Coverage',
+                        sourceCodeRetention: 'LAST_BUILD',
+                        qualityGates: [
+                        [metric: 'LINE', threshold: 70.0, baseline: 'PROJECT', unstable: true],
+                        [metric: 'BRANCH', threshold: 60.0, baseline: 'PROJECT', unstable: true]
+                        ]
+                    )
+                    // publishHTML([allowMissing: false, alwaysLinkToLastBuild: true, icon: '', keepAll: true, reportDir: 'target/site/jacoco-it', reportFiles: 'index.html', reportName: 'Coverage – IT', reportTitles: '', useWrapperFileDirectly: true])
                 }
             }
         }
