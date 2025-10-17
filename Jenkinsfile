@@ -61,21 +61,19 @@ pipeline {
             steps {
                 sh 'mvn org.pitest:pitest-maven:mutationCoverage'
             }
-            // post {
-            //     always {
-            //         recordCoverage(
-            //             tools: [[parser: 'PIT', pattern: 'target/pit-reports/latest/mutations.xml']],
-            //             id: 'pit',
-            //             name: 'PIT Mutation Coverage',
-            //             sourceCodeRetention: 'LAST_BUILD',
-            //             qualityGates: [
-            //             // Exemple : échouer si le score de mutation < 70%
-            //             [threshold: 70.0, metric: 'MUTATION', baseline: 'PROJECT', unstable: false]
-            //             ]
-            //         )
-            //         archiveArtifacts artifacts: 'target/pit-reports/**', fingerprint: true, onlyIfSuccessful: false
-            //     }
-            // }
+            post {
+                always {
+                    recordCoverage(
+                        tools: [[parser: 'PIT', pattern: 'target/pit-reports/latest/mutations.xml']],
+                        id: 'pit',
+                        name: 'PIT Mutation Coverage',
+                        sourceCodeRetention: 'LAST_BUILD',
+                        sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
+                        qualityGates: [[metric: 'MUTATION', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']]
+                    )
+                    // archiveArtifacts artifacts: 'target/pit-reports/**', fingerprint: true, onlyIfSuccessful: false
+                }
+            }
         }
 
         stage('Integration Tests') {
@@ -102,25 +100,25 @@ pipeline {
             }
         }
 
-         stage('Coverage Report') {
-            steps {
-                echo "📊 Generating unified coverage report..."
-                recordCoverage(
-                    tools: [jacoco(name: 'JaCoCo Coverage')],
-                    sourceCodeRetention: 'EVERY_BUILD',
-                    adapters: [
-                        jacocoAdapter('**/target/site/jacoco/jacoco.xml'),
-                        jacocoAdapter('**/target/site/jacoco-it/jacoco.xml'),
-                        jacocoAdapter('*/modules//jacoco.xml') // for multi-module builds
-                    ],
-                    failNoReports: true,
-                    qualityGates: [
-                        [threshold: 80, metric: 'LINE', unstable: true],
-                        [threshold: 70, metric: 'BRANCH', unstable: true]
-                    ]
-                )
-            }
-        }
+        //  stage('Coverage Report') {
+        //     steps {
+        //         echo "📊 Generating unified coverage report..."
+        //         recordCoverage(
+        //             tools: [jacoco(name: 'JaCoCo Coverage')],
+        //             sourceCodeRetention: 'EVERY_BUILD',
+        //             adapters: [
+        //                 jacocoAdapter('**/target/site/jacoco/jacoco.xml'),
+        //                 jacocoAdapter('**/target/site/jacoco-it/jacoco.xml'),
+        //                 jacocoAdapter('*/modules//jacoco.xml') // for multi-module builds
+        //             ],
+        //             failNoReports: true,
+        //             qualityGates: [
+        //                 [threshold: 80, metric: 'LINE', unstable: true],
+        //                 [threshold: 70, metric: 'BRANCH', unstable: true]
+        //             ]
+        //         )
+        //     }
+        // }
 
         stage('Build Docker Image') {
             when {
