@@ -109,34 +109,50 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+          stage('Deploy to Development') {
             when {
-                anyOf {
-                    branch 'develop'
-                    branch 'staging'
-                    branch 'main'
-                }
+                branch 'develop'
             }
             steps {
-                script {
-                    if (env.BRANCH_NAME == 'develop') {
-                        echo "🚀 Deploying to DEVELOPMENT environment..."
-                        sh 'nohup java -jar target/myapp.jar &'
-                    } else if (env.BRANCH_NAME == 'staging') {
-                        echo "🚀 Deploying to STAGING environment (Docker)..."
-                        sh "docker run -d -p 8090:8090 ${DOCKER_IMAGE}"
-                    } else if (env.BRANCH_NAME == 'main') {
-                        echo "🚀 Deploying to PRODUCTION environment (Docker)..."
-                        sh """
-                            docker stop myapp || true
-                            docker rm myapp || true
-                            docker run -d --name myapp -p 80:8090 ${DOCKER_IMAGE}
-                        """
-                    }
-                }
+                echo "🚀 Deploying to DEVELOPMENT (local JAR)..."
+                sh '''
+                    echo "Stopping existing process..."
+                    pkill -f "myapp.jar" || true
+                    echo "Starting application..."
+                    nohup java -jar target/myapp.jar > app.log 2>&1 &
+                '''
+            }
+        }
+
+        stage('Deploy to Staging') {
+            when {
+                branch 'staging'
+            }
+            steps {
+                echo "🚀 Deploying to STAGING (Docker)..."
+                sh '''
+                    docker stop myapp || true
+                    docker rm myapp || true
+                    docker run -d --name myapp -p 8090:8090 ${DOCKER_IMAGE}
+                '''
+            }
+        }
+
+        stage('Deploy to Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo "🚀 Deploying to PRODUCTION (Docker)..."
+                sh '''
+                    docker stop myapp || true
+                    docker rm myapp || true
+                    docker run -d --name myapp -p 80:8090 ${DOCKER_IMAGE}
+                '''
             }
         }
     }
+
 
     post {
         failure {
