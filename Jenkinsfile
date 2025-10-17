@@ -53,12 +53,12 @@ pipeline {
 
         stage('Integration Tests') {
             steps {
-                sh 'mvn failsafe:integration-test failsafe:verify'
+                sh 'mvn jacoco:prepare-agent-integration failsafe:integration-test failsafe:verify'
             }
             post {
                 always {
-                    junit '**/target/surefire-reports/*.xml'
-                    jacoco(execPattern: '**/target/jacoco.exec', classPattern: '**/target/classes', sourcePattern: 'src/main/java')
+                    junit '**/target/failsafe-reports/*.xml'
+                    jacoco(execPattern: '**/target/jacoco-it.exec', classPattern: '**/target/classes', sourcePattern: 'src/main/java')
                 }
             }
         }
