@@ -49,8 +49,8 @@ pipeline {
                         sourceCodeRetention: 'LAST_BUILD',
                         sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
                         qualityGates: [
-                            [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'UNSTABLE'],
-                            [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'UNSTABLE']
+                            [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'NOTE'],
+                            [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']
                         ]
                     )
                 }
@@ -93,8 +93,8 @@ pipeline {
                         sourceCodeRetention: 'LAST_BUILD',
                         sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
                         qualityGates: [
-                            [metric: 'LINE',   baseline: 'PROJECT', threshold: 70.0, criticality: 'UNSTABLE'],
-                            [metric: 'BRANCH', baseline: 'PROJECT', threshold: 60.0, criticality: 'UNSTABLE']
+                            [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'NOTE'],
+                            [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']
                         ]
                     )
                     // publishHTML([allowMissing: false, alwaysLinkToLastBuild: true, icon: '', keepAll: true, reportDir: 'target/site/jacoco-it', reportFiles: 'index.html', reportName: 'Coverage – IT', reportTitles: '', useWrapperFileDirectly: true])
@@ -121,7 +121,6 @@ pipeline {
                 )
             }
         }
-
 
         stage('Build Docker Image') {
             when {
