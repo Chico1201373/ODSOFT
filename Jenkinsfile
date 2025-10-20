@@ -104,6 +104,10 @@ pipeline {
 
         stage('Build Docker Image') {
     when {
+        anyOf {
+        branch 'staging'
+        branch 'main'
+    }
         expression { fileExists('Dockerfile') }
     }
     steps {
