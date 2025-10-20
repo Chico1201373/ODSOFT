@@ -2,15 +2,22 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "myapp:${env.BUILD_NUMBER}"
+        BRANCH_NAME_SANITIZED = "${env.GIT_BRANCH ?: env.BRANCH_NAME}".replaceAll('/', '-')
+        DOCKER_IMAGE = "myapp:${BRANCH_NAME_SANITIZED}"
         SONAR_PROJECT_KEY = 'myapp-sonar'
     }
+
 
     stages {
 
         stage('Checkout') {
             steps {
                 checkout scm
+                script {
+                    // For multibranch pipelines, Jenkins automatically sets env.BRANCH_NAME
+                    echo "Current branch: ${env.BRANCH_NAME}"
+                    echo "Docker image name: ${DOCKER_IMAGE}"
+                }
             }
         }
 
@@ -104,12 +111,14 @@ pipeline {
                     sh """
                         echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
                         docker build -t ${DOCKER_IMAGE} .
+                        docker push ${DOCKER_IMAGE}
                     """
                 }
             }
         }
 
-          stage('Deploy to Development') {
+
+        stage('Deploy to Development') {
             when {
                 branch 'develop'
             }
@@ -117,9 +126,9 @@ pipeline {
                 echo "🚀 Deploying to DEVELOPMENT (local JAR)..."
                 sh '''
                     echo "Stopping existing process..."
-                    pkill -f "myapp.jar" || true
+                    pkill -f "psoft-g1-0.0.1-SNAPSHOT.jar" || true
                     echo "Starting application..."
-                    nohup java -jar target/myapp.jar > app.log 2>&1 &
+                    nohup java -jar target/psoft-g1-0.0.1-SNAPSHOT.jar > app.log 2>&1 &
                 '''
             }
         }
