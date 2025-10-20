@@ -102,20 +102,22 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-            when {
-                expression { fileExists('Dockerfile') }
-            }
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh """
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        docker build -t ${DOCKER_IMAGE} .
-                        docker push ${DOCKER_IMAGE}
-                    """
-                }
+                stage('Build Docker Image') {
+    when {
+        expression { fileExists('Dockerfile') }
+    }
+    steps {
+        withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+            script {
+                sh '''
+                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                    docker build -t "$DOCKER_USER/myapp:${BRANCH_NAME_SANITIZED}" .
+                    docker push "$DOCKER_USER/myapp:${BRANCH_NAME_SANITIZED}"
+                '''
             }
         }
+    }
+}
 
 
         stage('Deploy to Development') {
