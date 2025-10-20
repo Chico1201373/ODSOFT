@@ -2,15 +2,22 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "myapp:${env.BUILD_NUMBER}"
+        BRANCH_NAME_SANITIZED = "${env.GIT_BRANCH ?: env.BRANCH_NAME}".replaceAll('/', '-')
+        DOCKER_IMAGE = "myapp:${BRANCH_NAME_SANITIZED}"
         SONAR_PROJECT_KEY = 'myapp-sonar'
     }
+
 
     stages {
 
         stage('Checkout') {
             steps {
                 checkout scm
+                script {
+                    // For multibranch pipelines, Jenkins automatically sets env.BRANCH_NAME
+                    echo "Current branch: ${env.BRANCH_NAME}"
+                    echo "Docker image name: ${DOCKER_IMAGE}"
+                }
             }
         }
 
@@ -104,39 +111,57 @@ pipeline {
                     sh """
                         echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
                         docker build -t ${DOCKER_IMAGE} .
+                        docker push ${DOCKER_IMAGE}
                     """
                 }
             }
         }
 
-        stage('Deploy') {
+
+        stage('Deploy to Development') {
             when {
-                anyOf {
-                    branch 'develop'
-                    branch 'staging'
-                    branch 'main'
-                }
+                branch 'develop'
             }
             steps {
-                script {
-                    if (env.BRANCH_NAME == 'develop') {
-                        echo "🚀 Deploying to DEVELOPMENT environment..."
-                        sh 'nohup java -jar target/myapp.jar &'
-                    } else if (env.BRANCH_NAME == 'staging') {
-                        echo "🚀 Deploying to STAGING environment (Docker)..."
-                        sh "docker run -d -p 8090:8090 ${DOCKER_IMAGE}"
-                    } else if (env.BRANCH_NAME == 'main') {
-                        echo "🚀 Deploying to PRODUCTION environment (Docker)..."
-                        sh """
-                            docker stop myapp || true
-                            docker rm myapp || true
-                            docker run -d --name myapp -p 80:8090 ${DOCKER_IMAGE}
-                        """
-                    }
-                }
+                echo "🚀 Deploying to DEVELOPMENT (local JAR)..."
+                sh '''
+                    echo "Stopping existing process..."
+                    pkill -f "psoft-g1-0.0.1-SNAPSHOT.jar" || true
+                    echo "Starting application..."
+                    nohup java -jar target/psoft-g1-0.0.1-SNAPSHOT.jar > app.log 2>&1 &
+                '''
+            }
+        }
+
+        stage('Deploy to Staging') {
+            when {
+                branch 'staging'
+            }
+            steps {
+                echo "🚀 Deploying to STAGING (Docker)..."
+                sh '''
+                    docker stop myapp || true
+                    docker rm myapp || true
+                    docker run -d --name myapp -p 8090:8090 ${DOCKER_IMAGE}
+                '''
+            }
+        }
+
+        stage('Deploy to Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo "🚀 Deploying to PRODUCTION (Docker)..."
+                sh '''
+                    docker stop myapp || true
+                    docker rm myapp || true
+                    docker run -d --name myapp -p 80:8090 ${DOCKER_IMAGE}
+                '''
             }
         }
     }
+
 
     post {
         failure {
