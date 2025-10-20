@@ -102,68 +102,62 @@ pipeline {
             }
         }
 
-                stage('Build Docker Image') {
-    when {
-        expression { fileExists('Dockerfile') }
-    }
-    steps {
-        withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-            script {
-                sh '''
-                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                    docker build -t "$DOCKER_USER/myapp:${BRANCH_NAME_SANITIZED}" .
-                    docker push "$DOCKER_USER/myapp:${BRANCH_NAME_SANITIZED}"
-                '''
-            }
-        }
-    }
-}
 
-
-        stage('Deploy to Development') {
+    // 🐳 Build & Push Docker image only for staging or main
+        stage('Build Docker Image') {
             when {
-                branch 'develop'
+                expression { fileExists('Dockerfile') }
+
+                anyOf {
+                    branch 'staging'
+                    branch 'main'
+                }
             }
             steps {
-                echo "🚀 Deploying to DEVELOPMENT (local JAR)..."
-                sh '''
-                    echo "Stopping existing process..."
-                    pkill -f "psoft-g1-0.0.1-SNAPSHOT.jar" || true
-                    echo "Starting application..."
-                    nohup java -jar target/psoft-g1-0.0.1-SNAPSHOT.jar > app.log 2>&1 &
-                '''
+                echo "🐳 Building Docker image for ${BRANCH_NAME_SANITIZED}"
+                withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker build -t "$DOCKER_USER/myapp:${BRANCH_NAME_SANITIZED}" .
+                        docker push "$DOCKER_USER/myapp:${BRANCH_NAME_SANITIZED}"
+                    '''
+                }
             }
         }
 
-        stage('Deploy to Staging') {
-            when {
-                branch 'staging'
-            }
-            steps {
-                echo "🚀 Deploying to STAGING (Docker)..."
-                sh '''
-                    docker stop myapp || true
-                    docker rm myapp || true
-                    docker run -d --name myapp -p 8090:8090 ${DOCKER_IMAGE}
-                '''
-            }
-        }
-
+        // 🚀 Only deploy when on main branch (production)
         stage('Deploy to Production') {
             when {
                 branch 'main'
             }
             steps {
                 echo "🚀 Deploying to PRODUCTION (Docker)..."
+                withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker pull "$DOCKER_USER/myapp:main"
+                        docker stop myapp || true
+                        docker rm myapp || true
+                        docker run -d --name myapp -p 80:8090 "$DOCKER_USER/myapp:main"
+                    '''
+                }
+            }
+        }
+
+        // 🧪 Local run for develop
+        stage('Deploy to Development') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                echo "🚀 Running local JAR for DEVELOPMENT..."
                 sh '''
-                    docker stop myapp || true
-                    docker rm myapp || true
-                    docker run -d --name myapp -p 80:8090 ${DOCKER_IMAGE}
+                    pkill -f "psoft-g1-0.0.1-SNAPSHOT.jar" || true
+                    nohup java -jar target/psoft-g1-0.0.1-SNAPSHOT.jar > app.log 2>&1 &
                 '''
             }
         }
     }
-
 
     post {
         failure {
