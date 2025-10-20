@@ -101,9 +101,7 @@ pipeline {
                 }
             }
         }
-
-
-    // 🐳 Build & Push Docker image only for staging or main
+// 🐳 Build & Push Docker image only for staging or main
         stage('Build Docker Image') {
             when {
                 expression { fileExists('Dockerfile') }
