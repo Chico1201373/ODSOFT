@@ -1,6 +1,7 @@
 package pt.psoft.g1.psoftg1.externalapimanagement.api;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,9 +19,13 @@ public class ExternalApiController {
     private final BookExternalMapper bookExternalMapper;
 
     @GetMapping(value = "/book/isbn/{title}")
-    public ResponseEntity<BookExternalView> receiveBooks(@PathVariable String title){
+    public ResponseEntity<BookExternalView> receiveBooks(@PathVariable @NotBlank(message = "Title cannot be empty") String title){
+        try {
         String isbn = bookExternalService.getIsbn(title);
-        BookExternalView bookExternalView = bookExternalMapper.toBookExternal(title,isbn);
-        return ResponseEntity.ok().body(bookExternalView);
+        BookExternalView view = bookExternalMapper.toBookExternal(title, isbn);
+        return ResponseEntity.ok(view);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

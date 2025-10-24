@@ -18,7 +18,7 @@ public class IdTimestampHex implements IdGenerator {
     private static final ThreadLocal<SecureRandom> SECURE_RANDOM = ThreadLocal.withInitial(SecureRandom::new);
 
     @Override
-    public String generateId() {
+    public synchronized String generateId() {
         long timestamp = System.currentTimeMillis();
         int random24 = SECURE_RANDOM.get().nextInt(BOUND);
         // zero-pad to 6 hex digits
