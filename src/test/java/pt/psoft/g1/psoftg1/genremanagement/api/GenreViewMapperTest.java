@@ -27,7 +27,7 @@ class GenreViewMapperTest {
 
     // opaque tests
     @Test
-    public void toGenreView() {
+    void toGenreView() {
         Genre genre = new Genre("Drama");
 
         GenreView view = mapper.toGenreView(genre);
@@ -57,7 +57,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreBookCountView_mapsSingleDto() {
+    void toGenreBookCountView_mapsSingleDto() {
         GenreBookCountDTO dto = new GenreBookCountDTO("Drama", 15L);
 
         GenreBookCountView view = mapper.toGenreBookCountView(dto);
@@ -69,7 +69,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreBookCountView_mapsList() {
+    void toGenreBookCountView_mapsList() {
         var list = List.of(
                 new GenreBookCountDTO("Fantasy", 10L),
                 new GenreBookCountDTO("Romance", 5L));
@@ -82,7 +82,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreAvgLendingsView_mapsSingleDto() {
+    void toGenreAvgLendingsView_mapsSingleDto() {
         GenreLendingsDTO dto = new GenreLendingsDTO("Horror", 4.5);
 
         GenreLendingsView view = mapper.toGenreAvgLendingsView(dto);
@@ -93,7 +93,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreAvgLendingsView_mapsList() {
+    void toGenreAvgLendingsView_mapsList() {
         var list = List.of(
                 new GenreLendingsDTO("Drama", 3.0),
                 new GenreLendingsDTO("Sci-Fi", 5.0));
@@ -106,7 +106,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreLendingsCountPerMonthView_mapsValues() {
+    void toGenreLendingsCountPerMonthView_mapsValues() {
         GenreLendingsDTO g1 = new GenreLendingsDTO("Fantasy", 10L);
         GenreLendingsDTO g2 = new GenreLendingsDTO("Drama", 20L);
         GenreLendingsPerMonthDTO dto = new GenreLendingsPerMonthDTO(2025, 9, List.of(g1, g2));
@@ -122,7 +122,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreLendingsCountPerMonthView_mapsList() {
+    void toGenreLendingsCountPerMonthView_mapsList() {
         var dto1 = new GenreLendingsPerMonthDTO(2025, 1,
                 List.of(new GenreLendingsDTO("Drama", 10.0)));
         var dto2 = new GenreLendingsPerMonthDTO(2025, 2,
@@ -136,7 +136,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreLendingsAveragePerMonthView_mapsValues() {
+    void toGenreLendingsAveragePerMonthView_mapsValues() {
         GenreLendingsDTO g1 = new GenreLendingsDTO("Sci-Fi", 2.5);
         GenreLendingsDTO g2 = new GenreLendingsDTO("Drama", 3.5);
         GenreLendingsPerMonthDTO dto = new GenreLendingsPerMonthDTO(2024, 5, List.of(g1, g2));
@@ -152,7 +152,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreLendingsAveragePerMonthView_mapsList() {
+    void toGenreLendingsAveragePerMonthView_mapsList() {
         var dto1 = new GenreLendingsPerMonthDTO(2025, 6,
                 List.of(new GenreLendingsDTO("Fantasy", 2.0)));
         var dto2 = new GenreLendingsPerMonthDTO(2025, 7,
@@ -185,7 +185,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreBookCountView_withNullDTO() {
+    void toGenreBookCountView_withNullDTO() {
         GenreBookCountDTO dto = null;
 
         GenreBookCountView view = mapper.toGenreBookCountView(dto);
@@ -194,7 +194,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreBookCountView_withNullList() {
+    void toGenreBookCountView_withNullList() {
         List<GenreBookCountDTO> list = null;
 
         List<GenreBookCountView> result = mapper.toGenreBookCountView(list);
@@ -203,7 +203,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreAvgLendingsView_withNullDTO() {
+    void toGenreAvgLendingsView_withNullDTO() {
         GenreLendingsDTO dto = null;
 
         GenreLendingsView view = mapper.toGenreAvgLendingsView(dto);
@@ -212,7 +212,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreAvgLendingsView_withNullList() {
+    void toGenreAvgLendingsView_withNullList() {
         List<GenreLendingsDTO> list = null;
         List<GenreLendingsView> views = mapper.toGenreAvgLendingsView(list);
 
@@ -220,7 +220,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreLendingsCountPerMonthView_withNullDto() {
+    void toGenreLendingsCountPerMonthView_withNullDto() {
         GenreLendingsPerMonthDTO dto = null;
 
         GenreLendingsCountPerMonthView view = mapper.toGenreLendingsCountPerMonthView(dto);
@@ -229,7 +229,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreLendingsCountPerMonthView_withNUllList() {
+    void toGenreLendingsCountPerMonthView_withNUllList() {
         List<GenreLendingsPerMonthDTO> list = null;
         List<GenreLendingsCountPerMonthView> views = mapper.toGenreLendingsCountPerMonthView(list);
 
@@ -237,7 +237,7 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreLendingsAveragePerMonthView_withNullDto() {
+    void toGenreLendingsAveragePerMonthView_withNullDto() {
         GenreLendingsPerMonthDTO dto = null;
 
         GenreLendingsAvgPerMonthView view = mapper.toGenreLendingsAveragePerMonthView(dto);
@@ -246,11 +246,30 @@ class GenreViewMapperTest {
     }
 
     @Test
-    public void toGenreLendingsAveragePerMonthView_withNullList() {
+    void toGenreLendingsAveragePerMonthView_withNullList() {
         List<GenreLendingsPerMonthDTO> dto = null;
 
         List<GenreLendingsAvgPerMonthView> result = mapper.toGenreLendingsAveragePerMonthView(dto);
 
         assertNull(result);
+    }
+
+    @Test
+    void toGenreLendingsCountPerMonthView_withDtoUsingGenreAndDoubleValue() {
+        Genre genre = new Genre("Fantasy");
+        GenreLendingsDTO g1 = new GenreLendingsDTO(genre, 10L);
+        GenreLendingsDTO g2 = new GenreLendingsDTO("Drama", 20);
+        Double dNull = null;
+        GenreLendingsDTO g3 = new GenreLendingsDTO("Drama", dNull);
+        GenreLendingsPerMonthDTO dto = new GenreLendingsPerMonthDTO(2025, 9, List.of(g1, g2, g3));
+
+        GenreLendingsCountPerMonthView view = mapper.toGenreLendingsCountPerMonthView(dto);
+
+        assertNotNull(view);
+        assertEquals(2025, view.getYear());
+        assertEquals(9, view.getMonth());
+        assertNotNull(view.getLendingsCount());
+        assertEquals(3, view.getLendingsCount().size());
+        assertEquals("Fantasy", view.getLendingsCount().get(0).getGenre());
     }
 }
