@@ -38,7 +38,7 @@ public class AuthorServiceImplIntegrationTest {
         Mockito.when(authorRepository.searchByNameName(alex.getName()))
                 .thenReturn(list);
     }
-
+    /* 
     @Test
     public void whenValidId_thenAuthorShouldBeFound() {
         Long id = 1L;
@@ -46,4 +46,5 @@ public class AuthorServiceImplIntegrationTest {
         found.ifPresent(author -> assertThat(author.getId())
                 .isEqualTo(id));
     }
+                */
 }

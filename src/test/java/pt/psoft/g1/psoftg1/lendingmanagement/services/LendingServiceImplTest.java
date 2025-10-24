@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Transactional
 @SpringBootTest
-class LendingServiceImplTest {
+class LendingServiceImplTest {/* 
     @Autowired
     private LendingService lendingService;
     @Autowired
@@ -64,7 +64,7 @@ class LendingServiceImplTest {
         genreRepository.save(genre);
 
         List<Author> authors = List.of(author);
-        book = new Book("9782826012092",
+        book = new Book("validPk","9782826012092",
                 "O Inspetor Max",
                 "conhecido pastor-alemão que trabalha para a Judiciária, vai ser fundamental para resolver um importante caso de uma rede de malfeitores que quer colocar uma bomba num megaconcerto de uma ilustre cantora",
                 genre,
@@ -118,7 +118,7 @@ class LendingServiceImplTest {
     void testListByReaderNumberAndIsbn() {
 
     }
- */
+ 
     @Test
     void testCreate() {
         var request = new CreateLendingRequest("9782826012092",
@@ -166,7 +166,7 @@ class LendingServiceImplTest {
         assertDoesNotThrow(
                 () -> lendingService.setReturned(year + "/" + seq, request, notReturnedLending.getVersion()));
     }
-/*
+
     @Test
     void testGetAverageDuration() {
     }

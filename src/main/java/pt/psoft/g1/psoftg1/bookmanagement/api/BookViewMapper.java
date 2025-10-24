@@ -53,7 +53,7 @@ public abstract class BookViewMapper extends MapperInterface {
                 .map(author -> {
                     String authorUri = ServletUriComponentsBuilder.fromCurrentContextPath()
                             .path("/api/authors/")
-                            .path(author.getAuthorNumber().toString())
+                            .path(author.getAuthorNumber())
                             .toUriString();
                     Map<String, String> authorLink = new HashMap<>();
                     authorLink.put("href", authorUri);

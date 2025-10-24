@@ -32,7 +32,7 @@ class LendingTest {
                 "Manuel António Pina foi um jornalista e escritor português, premiado em 2011 com o Prémio Camões",
                 null);
         authors.add(author);
-        book = new Book("9782826012092",
+        book = new Book("validPk","9782826012092",
                 "O Inspetor Max",
                 "conhecido pastor-alemão que trabalha para a Judiciária, vai ser fundamental para resolver um importante caso de uma rede de malfeitores que quer colocar uma bomba num megaconcerto de uma ilustre cantora",
                 new Genre("Romance"),

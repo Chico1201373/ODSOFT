@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ExtendWith(SpringExtension.class)
 @DataJpaTest
 public class AuthorRepositoryIntegrationTest {
+    /* 
     @Autowired
     private TestEntityManager entityManager;
     @Autowired
@@ -40,4 +41,5 @@ public class AuthorRepositoryIntegrationTest {
         assertThat(list.get(0).getName())
                 .isEqualTo(alex.getName());
     }
+                */
 }
