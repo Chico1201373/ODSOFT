@@ -260,7 +260,8 @@ class GenreViewMapperTest {
         GenreLendingsDTO g1 = new GenreLendingsDTO(genre, 10L);
         GenreLendingsDTO g2 = new GenreLendingsDTO("Drama", 20);
         Double dNull = null;
-        GenreLendingsDTO g3 = new GenreLendingsDTO("Drama", dNull);
+
+        GenreLendingsDTO g3 = new GenreLendingsDTO("drama", dNull);
         GenreLendingsPerMonthDTO dto = new GenreLendingsPerMonthDTO(2025, 9, List.of(g1, g2, g3));
 
         GenreLendingsCountPerMonthView view = mapper.toGenreLendingsCountPerMonthView(dto);

@@ -53,4 +53,11 @@ class GenreTest {
         assertEquals("Some genre", genre.toString());
     }
 
+    @Test
+    void ensureGenreCanBeExactlyMaxLength() {
+        String exact = "A".repeat(100); // GENRE_MAX_LENGTH = 100
+        Genre g = new Genre(exact);
+        assertEquals(exact, g.getGenre());
+    }
+
 }
