@@ -102,7 +102,7 @@ pipeline {
             }
         }
 
- // 🐳 Build & Push Docker image only for staging or main
+ // Build & Push Docker image only for staging or main
         stage('Build Docker Image') {
             when {
                 expression { fileExists('Dockerfile') }
@@ -124,7 +124,7 @@ pipeline {
             }
         }
 
-        // 🚀 Only deploy when on main branch (production)
+        //  Only deploy when on main branch (production)
         stage('Deploy to Production') {
             when {
                 branch 'main'
@@ -143,7 +143,7 @@ pipeline {
             }
         }
 
-        // 🧪 Local run for develop
+        //  Local run for develop
         stage('Deploy to Development') {
             when {
                 branch 'develop'

@@ -8,12 +8,12 @@ import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporte
 // Load CSV Data
 // ======================================
 const books = new SharedArray("books", function () {
-  const csv = open("/tests/books_data.csv");
+  const csv = open("./books_data.csv");
   return papaparse.parse(csv, { header: true }).data;
 });
 
 const users = new SharedArray("users", function () {
-  const csv = open("/tests/user_data.csv");
+  const csv = open("./user_data.csv");
   return papaparse.parse(csv, { header: true }).data;
 });
 
@@ -49,7 +49,7 @@ export default function () {
   });
 
   const loginRes = http.post(
-    "http://books-api:8081/api/public/login",
+    "http://localhost:8081/api/public/login",
     loginPayload,
     { headers: { "Content-Type": "application/json", "Accept": "application/json" } }
   );
@@ -71,7 +71,7 @@ export default function () {
   // --- GET /books ---
   const book = books[Math.floor(Math.random() * books.length)];
   const genre = encodeURIComponent(book.genre);
-  const getRes = http.get(`http://books-api:8081/api/books?genre=${genre}`, {
+  const getRes = http.get(`http://localhost:8081/api/books?genre=${genre}`, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
@@ -92,6 +92,6 @@ export default function () {
 // ======================================
 export function handleSummary(data) {
   return {
-    [`/tests/${SUMMARY_NAME}`]: htmlReport(data),
+    [`./${SUMMARY_NAME}`]: htmlReport(data),
   };
 }
