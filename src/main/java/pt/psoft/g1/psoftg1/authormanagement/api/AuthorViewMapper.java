@@ -40,12 +40,12 @@ public abstract class AuthorViewMapper extends MapperInterface {
     public Map<String, Object> mapLinks(final Author author){
         String authorUri = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/api/authors/")
-                .path(author.getId().toString())
+                .path(author.getAuthorNumber())
                 .toUriString();
 
         String booksByAuthorUri = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/api/authors/")
-                .path(author.getId().toString())
+                .path(author.getAuthorNumber())
                 .path("/books")
                 .toUriString();
 
@@ -59,7 +59,7 @@ public abstract class AuthorViewMapper extends MapperInterface {
     }
 
     protected String generatePhotoUrl(Author author) {
-        Long authorNumber = author.getAuthorNumber();
+        String authorNumber = author.getAuthorNumber();
         return ServletUriComponentsBuilder.fromCurrentContextPath().path("/api/authors/{authorNumber}/photo").buildAndExpand(authorNumber).toUri().toString();
     }
 

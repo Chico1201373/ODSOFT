@@ -31,6 +31,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
@@ -131,6 +132,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PATCH,"/api/books/{isbn}").hasRole(Role.LIBRARIAN)
                 .requestMatchers(HttpMethod.GET,"/api/books/{isbn}/avgDuration").hasRole(Role.LIBRARIAN)
                 .requestMatchers(HttpMethod.GET,"/api/books").hasAnyRole(Role.LIBRARIAN, Role.READER)
+                .requestMatchers(HttpMethod.GET,"/api/books/isbn/{title}").hasAnyRole(Role.LIBRARIAN, Role.READER)
+
+                //External API endpoint
+                .requestMatchers(HttpMethod.GET,"/api/external/book/isbn/{title}").hasAnyRole(Role.LIBRARIAN, Role.READER)
+
+                //end external API endpoint
+
                 .requestMatchers(HttpMethod.GET,"/api/books/{isbn}").hasAnyRole(Role.READER,Role.LIBRARIAN)
                 .requestMatchers(HttpMethod.GET,"/api/books/top5").hasRole(Role.LIBRARIAN)
                 .requestMatchers(HttpMethod.GET,"/api/books/{isbn}/photo").hasAnyRole(Role.LIBRARIAN, Role.READER)
@@ -219,6 +227,10 @@ public class SecurityConfig {
         config.addAllowedMethod("*");
         source.registerCorsConfiguration("/**", config);
         return new CorsFilter(source);
+    }
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
     }
 
 }

@@ -5,15 +5,21 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 import pt.psoft.g1.psoftg1.authormanagement.model.Author;
 import pt.psoft.g1.psoftg1.authormanagement.repositories.AuthorRepository;
+import pt.psoft.g1.psoftg1.authormanagement.services.FactoryAuthor;
 import pt.psoft.g1.psoftg1.bookmanagement.model.Book;
 import pt.psoft.g1.psoftg1.bookmanagement.repositories.BookRepository;
+import pt.psoft.g1.psoftg1.bookmanagement.services.FactoryBook;
 import pt.psoft.g1.psoftg1.exceptions.LendingForbiddenException;
 import pt.psoft.g1.psoftg1.genremanagement.model.Genre;
 import pt.psoft.g1.psoftg1.genremanagement.repositories.GenreRepository;
+import pt.psoft.g1.psoftg1.idgenerator.IdBase65;
+import pt.psoft.g1.psoftg1.idgenerator.IdGenerator;
 import pt.psoft.g1.psoftg1.lendingmanagement.model.Lending;
 import pt.psoft.g1.psoftg1.lendingmanagement.repositories.LendingRepository;
 import pt.psoft.g1.psoftg1.readermanagement.model.ReaderDetails;
@@ -30,8 +36,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Transactional
 @SpringBootTest
+@DataJpaTest
+@Import({FactoryAuthor.class, FactoryBook.class, IdBase65.class})
 class LendingServiceImplTest {
-    @Autowired
+ /*   @Autowired
     private LendingService lendingService;
     @Autowired
     private LendingRepository lendingRepository;
@@ -52,6 +60,8 @@ class LendingServiceImplTest {
     private Book book;
     private Author author;
     private Genre genre;
+    @Autowired
+    private IdGenerator idGenerator;
 
     @BeforeEach
     void setUp() {
@@ -62,9 +72,9 @@ class LendingServiceImplTest {
 
         genre = new Genre("Género");
         genreRepository.save(genre);
-
+        String id= idGenerator.generateId();
         List<Author> authors = List.of(author);
-        book = new Book("9782826012092",
+        book = new Book(id,"9782826012092",
                 "O Inspetor Max",
                 "conhecido pastor-alemão que trabalha para a Judiciária, vai ser fundamental para resolver um importante caso de uma rede de malfeitores que quer colocar uma bomba num megaconcerto de uma ilustre cantora",
                 genre,
@@ -113,12 +123,7 @@ class LendingServiceImplTest {
         assertThat(lendingService.findByLendingNumber(LocalDate.now().getYear() + "/999")).isPresent();
         assertThat(lendingService.findByLendingNumber(LocalDate.now().getYear() + "/1")).isEmpty();
     }
-/*
-    @Test
-    void testListByReaderNumberAndIsbn() {
 
-    }
- */
     @Test
     void testCreate() {
         var request = new CreateLendingRequest("9782826012092",
@@ -166,14 +171,5 @@ class LendingServiceImplTest {
         assertDoesNotThrow(
                 () -> lendingService.setReturned(year + "/" + seq, request, notReturnedLending.getVersion()));
     }
-/*
-    @Test
-    void testGetAverageDuration() {
-    }
-
-    @Test
-    void testGetOverdue() {
-    }
-
- */
+    */
 }

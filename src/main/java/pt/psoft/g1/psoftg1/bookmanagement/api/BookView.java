@@ -14,6 +14,9 @@ import java.util.Map;
 @Schema(description = "A Book")
 public class BookView {
     @NotNull
+    private String pk;
+
+    @NotNull
     private String title;
 
     @NotNull

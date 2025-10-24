@@ -36,6 +36,7 @@ public class BookServiceImpl implements BookService {
 	private final AuthorRepository authorRepository;
 	private final PhotoRepository photoRepository;
 	private final ReaderRepository readerRepository;
+	private final FactoryBook factoryBook;
 
 	@Value("${suggestionsLimitPerGenre}")
 	private long suggestionsLimitPerGenre;
@@ -47,9 +48,9 @@ public class BookServiceImpl implements BookService {
 			throw new ConflictException("Book with ISBN " + isbn + " already exists");
 		}
 
-		List<Long> authorNumbers = request.getAuthors();
+		List<String> authorNumbers = request.getAuthors();
 		List<Author> authors = new ArrayList<>();
-		for (Long authorNumber : authorNumbers) {
+		for (String authorNumber : authorNumbers) {
 
 			Optional<Author> temp = authorRepository.findByAuthorNumber(authorNumber);
 			if(temp.isEmpty()) {
@@ -70,7 +71,7 @@ public class BookServiceImpl implements BookService {
 		final var genre = genreRepository.findByString(request.getGenre())
 				.orElseThrow(() -> new NotFoundException("Genre not found"));
 
-		Book newBook = new Book(isbn, request.getTitle(), request.getDescription(), genre, authors, photoURI);
+		Book newBook = factoryBook.generateBook(request,isbn, genre, authors, photoURI);
 
         return bookRepository.save(newBook);
 	}
@@ -81,9 +82,9 @@ public class BookServiceImpl implements BookService {
 
         var book = findByIsbn(request.getIsbn());
         if(request.getAuthors()!= null) {
-            List<Long> authorNumbers = request.getAuthors();
+            List<String> authorNumbers = request.getAuthors();
             List<Author> authors = new ArrayList<>();
-            for (Long authorNumber : authorNumbers) {
+            for (String authorNumber : authorNumbers) {
                 Optional<Author> temp = authorRepository.findByAuthorNumber(authorNumber);
                 if (temp.isEmpty()) {
                     continue;

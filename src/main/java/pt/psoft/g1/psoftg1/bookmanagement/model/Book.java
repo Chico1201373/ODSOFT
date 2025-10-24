@@ -21,8 +21,8 @@ import java.util.Objects;
 })
 public class Book extends EntityWithPhoto {
     @Id
-    @GeneratedValue(strategy= GenerationType.AUTO)
-    long pk;
+    @Getter
+    String pk;
 
     @Version
     @Getter
@@ -62,7 +62,8 @@ public class Book extends EntityWithPhoto {
 
     public String getDescription(){ return this.description.toString(); }
 
-    public Book(String isbn, String title, String description, Genre genre, List<Author> authors, String photoURI) {
+    public Book(String pk,String isbn, String title, String description, Genre genre, List<Author> authors, String photoURI) {
+        this.pk=pk;
         setTitle(title);
         setIsbn(isbn);
         if(description != null)
