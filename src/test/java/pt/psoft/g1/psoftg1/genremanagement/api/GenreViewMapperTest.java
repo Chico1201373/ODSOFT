@@ -1,9 +1,9 @@
 package pt.psoft.g1.psoftg1.genremanagement.api;
 
+import static org.junit.Assert.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.time.Month;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +26,35 @@ class GenreViewMapperTest {
     }
 
     // opaque tests
+    @Test
+    public void toGenreView() {
+        Genre genre = new Genre("Drama");
+
+        GenreView view = mapper.toGenreView(genre);
+
+        assertNotNull(view);
+        assertEquals("Drama", view.getGenre());
+    }
+
+    @Test
+    void mapStringToGenreView() {
+        GenreView view = mapper.mapStringToGenreView("Fantasy");
+
+        assertNotNull(view);
+        assertEquals("Fantasy", view.getGenre());
+    }
+
+    @Test
+    void toGenreBookCountView() {
+        Genre genre = new Genre("Sci-Fi");
+        GenreBookCountDTO dto = new GenreBookCountDTO(genre.getGenre(), 100);
+
+        GenreBookCountView view = mapper.toGenreBookCountView(dto);
+
+        assertNotNull(view);
+        assertNotNull(view.getGenreView());
+        assertEquals(100, view.getBookCount());
+    }
 
     @Test
     public void toGenreBookCountView_mapsSingleDto() {
@@ -134,5 +163,94 @@ class GenreViewMapperTest {
         assertEquals(2, result.size());
         assertEquals(7, result.get(1).getMonth());
         assertEquals("Horror", result.get(1).getDurationAverages().get(0).getGenre());
+    }
+
+    // transparent tests
+
+    @Test
+    void toGenreViewWithNull() {
+        Genre genre = null;
+
+        GenreView genreView = mapper.toGenreView(genre);
+
+        assertNull(genreView);
+    }
+
+    @Test
+    void mapStringToGenreViewWithNull() {
+
+        GenreView genreView = mapper.mapStringToGenreView(null);
+
+        assertNull(genreView);
+    }
+
+    @Test
+    public void toGenreBookCountView_withNullDTO() {
+        GenreBookCountDTO dto = null;
+
+        GenreBookCountView view = mapper.toGenreBookCountView(dto);
+
+        assertNull(view);
+    }
+
+    @Test
+    public void toGenreBookCountView_withNullList() {
+        List<GenreBookCountDTO> list = null;
+
+        List<GenreBookCountView> result = mapper.toGenreBookCountView(list);
+
+        assertNull(result);
+    }
+
+    @Test
+    public void toGenreAvgLendingsView_withNullDTO() {
+        GenreLendingsDTO dto = null;
+
+        GenreLendingsView view = mapper.toGenreAvgLendingsView(dto);
+
+        assertNull(view);
+    }
+
+    @Test
+    public void toGenreAvgLendingsView_withNullList() {
+        List<GenreLendingsDTO> list = null;
+        List<GenreLendingsView> views = mapper.toGenreAvgLendingsView(list);
+
+        assertNull(views);
+    }
+
+    @Test
+    public void toGenreLendingsCountPerMonthView_withNullDto() {
+        GenreLendingsPerMonthDTO dto = null;
+
+        GenreLendingsCountPerMonthView view = mapper.toGenreLendingsCountPerMonthView(dto);
+
+        assertNull(view);
+    }
+
+    @Test
+    public void toGenreLendingsCountPerMonthView_withNUllList() {
+        List<GenreLendingsPerMonthDTO> list = null;
+        List<GenreLendingsCountPerMonthView> views = mapper.toGenreLendingsCountPerMonthView(list);
+
+        assertNull(views);
+    }
+
+    @Test
+    public void toGenreLendingsAveragePerMonthView_withNullDto() {
+        GenreLendingsPerMonthDTO dto = null;
+
+        GenreLendingsAvgPerMonthView view = mapper.toGenreLendingsAveragePerMonthView(dto);
+
+        assertNull(view);
+    }
+
+    @Test
+    public void toGenreLendingsAveragePerMonthView_withNullList() {
+        List<GenreLendingsPerMonthDTO> dto = null;
+
+        List<GenreLendingsAvgPerMonthView> result = mapper.toGenreLendingsAveragePerMonthView(dto);
+
+        assertNull(result);
     }
 }
