@@ -254,6 +254,15 @@ class GenreServiceImplTest {
     }
 
     @Test
+    void getLendingsAverageDurationPerMonth_whenStartAfterEnd_shouldThrowsIllegalArgument() {
+        assertThrows("Start date cannot be after end date", IllegalArgumentException.class,
+                () -> genreService.getLendingsAverageDurationPerMonth("2023-09-01",
+                        "2023-08-31"));
+
+        verifyNoInteractions(genreRepository);
+    }
+
+    @Test
     void getLendingsAverageDurationPerMonth_whenCorrectInput_shouldReturnList() {
         Genre genre1 = new Genre("Fantasy");
         Genre genre2 = new Genre("Sci-Fi");
