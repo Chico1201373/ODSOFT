@@ -38,13 +38,13 @@ public class AuthorServiceImplIntegrationTest {
         Mockito.when(authorRepository.searchByNameName(alex.getName()))
                 .thenReturn(list);
     }
-    /* 
+    
     @Test
     public void whenValidId_thenAuthorShouldBeFound() {
-        Long id = 1L;
+        String id = "1L";
         Optional<Author> found = authorService.findByAuthorNumber(id);
-        found.ifPresent(author -> assertThat(author.getId())
+        found.ifPresent(author -> assertThat(author.getAuthorNumber())
                 .isEqualTo(id));
     }
-                */
+            
 }
