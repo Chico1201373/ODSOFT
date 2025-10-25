@@ -32,8 +32,6 @@ class GenreServiceImplTest {
     private GenreRepository genreRepository;
 
     @Mock
-    private GetAverageLendingsQuery avgQuery;
-    @Mock
     private Page page;
 
     @Test
@@ -203,8 +201,7 @@ class GenreServiceImplTest {
         GenreLendingsDTO dto1 = new GenreLendingsDTO("Fantasy", 10);
         GenreLendingsDTO dto2 = new GenreLendingsDTO("Sci-Fi", 5);
 
-        when(avgQuery.getYear()).thenReturn(2025);
-        when(avgQuery.getMonth()).thenReturn(3);
+        GetAverageLendingsQuery avgQuery = new GetAverageLendingsQuery(2025, 3);
 
         var month = java.time.LocalDate.of(avgQuery.getYear(), avgQuery.getMonth(), 1);
         when(genreRepository.getAverageLendingsInMonth(
@@ -223,8 +220,8 @@ class GenreServiceImplTest {
 
     @Test
     void getAverageLendingsInMonth_returnsEmptyWhenNoData() {
-        when(avgQuery.getYear()).thenReturn(2025);
-        when(avgQuery.getMonth()).thenReturn(4);
+        GetAverageLendingsQuery avgQuery = new GetAverageLendingsQuery(2025, 5);
+
         var month = java.time.LocalDate.of(avgQuery.getYear(), avgQuery.getMonth(), 1);
         when(genreRepository.getAverageLendingsInMonth(
                 month, page))
@@ -236,9 +233,11 @@ class GenreServiceImplTest {
 
     @Test
     void getAverageLendingsInMonth_whenPageNull_useDefaultPage() {
-        GenreLendingsDTO dto1 = new GenreLendingsDTO("Fantasy", 12);
-        when(avgQuery.getYear()).thenReturn(2025);
-        when(avgQuery.getMonth()).thenReturn(5);
+        Genre genre1 = new Genre("Fantasy");
+        GenreLendingsDTO dto1 = new GenreLendingsDTO(genre1, 12.0);
+        GetAverageLendingsQuery avgQuery = new GetAverageLendingsQuery();
+        avgQuery.setYear(2025);
+        avgQuery.setMonth(5);
 
         var month = java.time.LocalDate.of(avgQuery.getYear(), avgQuery.getMonth(), 1);
 
