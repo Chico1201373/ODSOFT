@@ -137,8 +137,8 @@ pipeline {
                         docker pull "$DOCKER_USER/myapp:main"
                         docker stop myapp || true
                         docker rm myapp || true
-                        docker run -d --name myapp -p 80:8090 "$DOCKER_USER/myapp:main"
-                    '''
+                        docker run -d --name myapp -p 8081:8081 "$DOCKER_USER/myapp:main"                    
+                        '''
                 }
             }
         }
