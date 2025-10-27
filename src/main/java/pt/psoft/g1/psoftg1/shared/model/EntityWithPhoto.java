@@ -14,7 +14,7 @@ import java.nio.file.Path;
 @MappedSuperclass
 public abstract class EntityWithPhoto {
     @Nullable
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name="photo_id")
     protected Photo photo;
 
