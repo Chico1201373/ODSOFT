@@ -1,2 +1,2 @@
 api.url: https://www.googleapis.com/books/v1/volumes
-api.key: AIzaSyDyr3TR9Kiv5TL1uGoMRFMzJL89ex47qiU
+api.key: ${GOOGLE_API_KEY}
