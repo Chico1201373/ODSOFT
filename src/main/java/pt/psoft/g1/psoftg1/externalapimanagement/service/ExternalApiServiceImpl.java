@@ -7,10 +7,15 @@ import pt.psoft.g1.psoftg1.externalapimanagement.model.BookIsbnAPI;
 @Service
 @AllArgsConstructor
 public class ExternalApiServiceImpl implements ExternalApiService {
+
+
     private final BookIsbnAPI bookIsbnAPI;
+
+
 
     @Override
     public String getIsbn(String title) {
         return bookIsbnAPI.getIsbn(title);
+
     }
 }

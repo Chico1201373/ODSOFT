@@ -7,9 +7,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import org.springframework.web.multipart.MultipartFile;
-
-import jakarta.persistence.EntityNotFoundException;
-import jakarta.transaction.Transactional;
 import pt.psoft.g1.psoftg1.authormanagement.model.Author;
 import pt.psoft.g1.psoftg1.bookmanagement.model.*;
 import pt.psoft.g1.psoftg1.bookmanagement.repositories.BookRepository;
@@ -133,16 +130,22 @@ public class BookServiceImpl implements BookService {
 		Pageable pageableRules = PageRequest.of(0,5);
 		return this.bookRepository.findTop5BooksLent(oneYearAgo, pageableRules).getContent();
 	}
-	
-	@Override
-	@Transactional
-	public Book removeBookPhoto(String isbn, long version) {
-    Book book = bookRepository.findByIsbn(isbn)
-        .orElseThrow(() -> new EntityNotFoundException("Book not found"));
 
-    book.removePhoto(version); // apenas remove a associação
-    return bookRepository.save(book); // Hibernate trata do resto
-}
+	@Override
+	public Book removeBookPhoto(String isbn, long desiredVersion) {
+		Book book = this.findByIsbn(isbn);
+		String photoFile;
+		try {
+			photoFile = book.getPhoto().getPhotoFile();
+		}catch (NullPointerException e){
+			throw new NotFoundException("Book did not have a photo assigned to it.");
+		}
+
+		book.removePhoto(desiredVersion);
+		var updatedBook = bookRepository.save(book);
+		photoRepository.deleteByPhotoFile(photoFile);
+		return updatedBook;
+	}
 
 	@Override
 	public List<Book> findByGenre(String genre) {
@@ -205,8 +208,4 @@ public class BookServiceImpl implements BookService {
 		}
 		return bookRepository.searchBooks(page, query);
 	}
-
-
-
-
 }

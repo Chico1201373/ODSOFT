@@ -1,8 +1,9 @@
-package pt.psoft.g1.psoftg1.bookmanagement.api;
+package pt.psoft.g1.psoftg1.externalapimanagement.api;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.List;
-
-public class OpenLibrarySearchResponse {
+public class IsbnResponse {
     private List<Book> docs;
 
     public List<Book> getDocs() {
@@ -12,7 +13,6 @@ public class OpenLibrarySearchResponse {
     public void setDocs(List<Book> docs) {
         this.docs = docs;
     }
-
     public static class Book {
         private List<String> isbn;
 

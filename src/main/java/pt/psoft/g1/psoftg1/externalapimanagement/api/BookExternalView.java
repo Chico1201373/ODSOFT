@@ -7,5 +7,4 @@ import lombok.Setter;
 @Setter
 public class BookExternalView {
     private String isbn;
-    private String title;
 }

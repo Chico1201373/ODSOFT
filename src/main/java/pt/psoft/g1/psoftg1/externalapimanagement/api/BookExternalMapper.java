@@ -6,5 +6,5 @@ import org.mapstruct.factory.Mappers;
 @Mapper(componentModel = "spring")
 public interface BookExternalMapper {
     BookExternalMapper INSTANCE = Mappers.getMapper(BookExternalMapper.class);
-    BookExternalView toBookExternal(String title, String isbn);
+    BookExternalView toBookExternal(String isbn);
 }
