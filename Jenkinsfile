@@ -1,4 +1,9 @@
 pipeline {
+
+    triggers {
+        githubPush()
+    }
+
     agent any
 
     environment {
@@ -14,7 +19,6 @@ pipeline {
             steps {
                 checkout scm
                 script {
-                    // For multibranch pipelines, Jenkins automatically sets env.BRANCH_NAME
                     echo "Current branch: ${env.BRANCH_NAME}"
                     echo "Docker image name: ${DOCKER_IMAGE}"
                 }
@@ -102,7 +106,7 @@ pipeline {
             }
         }
 
- // 🐳 Build & Push Docker image only for staging or main
+ //  Build & Push Docker image only for staging or main
         stage('Build Docker Image') {
             when {
                 expression { fileExists('Dockerfile') }
@@ -113,7 +117,7 @@ pipeline {
                 }
             }
             steps {
-                echo "🐳 Building Docker image for ${BRANCH_NAME_SANITIZED}"
+                echo " Building Docker image for ${BRANCH_NAME_SANITIZED}"
                 withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
@@ -124,13 +128,13 @@ pipeline {
             }
         }
 
-        // 🚀 Only deploy when on main branch (production)
+        //  Only deploy when on main branch (production)
         stage('Deploy to Production') {
             when {
                 branch 'main'
             }
             steps {
-                echo "🚀 Deploying to PRODUCTION (Docker)..."
+                echo "Deploying to PRODUCTION (Docker)..."
                 withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
@@ -143,7 +147,7 @@ pipeline {
             }
         }
 
-        // 🧪 Local run for develop
+        // Local run for develop
         stage('Deploy to Development') {
             when {
                 branch 'develop'
