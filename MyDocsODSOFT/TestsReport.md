@@ -1,11 +1,11 @@
-# 📘 K6 Load Test for Books API
+#  K6 Load Test for Books API
 
 This K6 test simulates users logging into the Books API and retrieving books by genre.  
 It evaluates both **quantity metrics** (how many requests and users the system can handle) and **quality metrics** (response time, error rates, correctness of responses).
 
 ---
 
-## 🗂️ Data Sources
+## Data Sources
 
 The test loads data from two CSV files using the [`SharedArray`](https://k6.io/docs/javascript-api/k6-data/sharedarray/):
 
@@ -16,7 +16,7 @@ The test loads data from two CSV files using the [`SharedArray`](https://k6.io/d
 
 ---
 
-## ⚙️ Test Configuration
+##  Test Configuration
 
 ### Load Stages (Quantity Tests)
 
@@ -39,7 +39,7 @@ It measures throughput, server stability, and scaling behavior.
 
 ---
 
-## 🧪 Main Test Logic (Quality Tests)
+##  Main Test Logic (Quality Tests)
 
 ### POST /login
 
@@ -80,14 +80,14 @@ check(getRes, {
 });
 ```
 
-## 🧩 Putting It Together
+##  Putting It Together
 
 | Aspect       | Focus                                | Example in Script                                   |
 | ------------ | ------------------------------------ | --------------------------------------------------- |
 | **Quality**  | Is it working correctly?             | `check()` assertions for status, headers, body      |
 | **Quantity** | How well does it perform under load? | `stages` (VUs), `thresholds` (latency/failure rate) |
 
-## 🧾 Report Files
+## Report Files
 
 | File                                  | Description                           |
 | ------------------------------------- | ------------------------------------- |
@@ -107,12 +107,12 @@ Each summary file contains:
 | **Scalability**     | VUs, iterations                    | Understand how load affects performance         |
 | **Capacity**        | Requests per second                | Measure how much traffic your system can handle |
 
-## ⚠️ Why Some Tests Fail
+##  Why Some Tests Fail
 
 Occasional failures (especially on **POST** requests) can occur due to **user does not exits** and the thresholds on metrics 'http_req_failed' is crossed but is normal. In this test there are only 5 user and 1 is fake so if the threshold is <30% it will would be good.
 
 ---
 
-## 🚨 Common Symptoms
+## Common Symptoms
 
 - `POST /login` returns **401** (unauthorise error)

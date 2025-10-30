@@ -1,10 +1,8 @@
-# 🧠 Jenkinsfile Explained 
-
-This Jenkinsfile describes a **CI/CD pipeline** for building, testing, analyzing, and deploying a Java app using **Maven**, **SonarQube**, and **Docker**.
+#  Jenkinsfile  
 
 ---
 
-## ⚙️ Overall Structure
+##  Overall Structure
 
 The pipeline has multiple **stages** that run one after another.  
 Each stage does something specific (like build, test, or deploy).  
@@ -12,7 +10,7 @@ It also uses some **environment variables** at the top for reuse later.
 
 ---
 
-## 🧩 Environment Variables
+##  Environment Variables
 
 ```groovy
 environment {
@@ -24,7 +22,7 @@ DOCKER_IMAGE: The Docker image name with the current build number.
 SONAR_PROJECT_KEY: Used for the SonarQube code analysis.
 
 ---
-## 🏗️ Stages
+##  Stages
 
 ### Checkout
 
@@ -43,98 +41,40 @@ sh 'mvn clean package'
 
 ```
 ---
-Runs Maven to build the project and create a .jar file.
-After it succeeds, the .jar file is saved as an artifact.
+## Jenkinsfile 
 
----
-### SonarQube Analysis
-```groovy
-sh 'mvn clean verify sonar:sonar -Dsonar.projectKey=myapp -Dsonar.login=$SONAR_TOKEN'
 
-```
+### What the pipeline does (high level)
 
-Runs SonarQube to analyze the code quality (e.g., bugs, code smells).
+- Checks out the code from GitHub.
+- Builds the Java project with Maven.
+- Runs several types of tests (unit, mutation, integration).
+- Runs SonarQube analysis for code quality.
+- Optionally builds and pushes a Docker image for certain branches.
+- Deploys the app depending on the branch (develop, staging, main).
 
----
-### Unit Testing
-```groovy
-sh 'mvn test'
+### Important environment variables
 
-```
+- `DOCKER_IMAGE` — name used for the Docker image (it uses the branch name).
+- `SONAR_PROJECT_KEY` — a key used by SonarQube when scanning the project.
 
-Runs unit tests.
-After the tests:
-    JUnit reports are collected.
-    Jacoco coverage is checked.
+These are defined at the top of the Jenkinsfile so the stages can reuse them.
 
----
-### Mutation Testing
-```groovy
-sh 'mvn org.pitest:pitest-maven:mutationCoverage'
-```
+### Main stages 
 
-Runs mutation testing (checks how good your tests are by introducing fake bugs).
+- Checkout: gets the source code from the repository.
+- Build & Package: runs `mvn clean package -DskipTests` to compile and create the JAR. The artifact is stored by Jenkins.
+- SonarQube Analysis: runs Sonar scanning to detect code smells and issues.
+- Unit Testing: runs `mvn test`. JUnit results and JaCoCo coverage are collected.
+- Mutation Testing: optional step that runs PIT to check how strong the tests are.
+- Integration Tests: runs integration tests using the Failsafe plugin and collects reports.
+- Build Docker Image: when on `staging` or `main` (and if a Dockerfile exists), builds and pushes an image to Docker Hub.
+- Deploy to Development / Production: depending on branch, the pipeline either starts the JAR locally (development) or runs a Docker container (production).
 
----
-### Integration Tests
-```groovy
-sh 'mvn verify'
-```
+### How branches affect the pipeline
 
-Runs integration tests.
-Same as before, collects JUnit and Jacoco results.
-
----
-### Build Docker Image
-Only runs if a Dockerfile exists.
-It logs in to Docker Hub and builds an image for the app:
-
-```groovy
-docker build -t ${DOCKER_IMAGE} .
-```
-
-Runs integration tests.
-Same as before, collects JUnit and Jacoco results.
-
----
-### Deploy
-This stage depends on the branch:
-
-    develop → runs the app directly (dev environment)
-    staging → runs it in Docker (on port 8090)
-    main → deploys to production (Docker, port 80)
-
-Basically:
-
-```groovy
-# Develop 
-java -jar target/myapp.jar
-
-# Staging 
-docker run -d -p 8090:8090 myapp:BUILD_NUMBER
-
-# Production 
-docker run -d --name myapp -p 80:8090 myapp:BUILD_NUMBER
-```
----
-## 🧾 Post Actions
-After the pipeline finishes:
-
-    If it fails → prints ❌
-    If it succeeds → prints ✅
----
-## 🚀 Summary
-
-| 🧩 Stage | 🎯 Purpose |
-|-----------|------------|
-| Checkout | Get the code |
-| Build & Package | Compile the app |
-| SonarQube | Code quality check |
-| Unit Testing | Run small tests |
-| Mutation Testing | Check test strength |
-| Integration Tests | Run bigger tests |
-| Build Docker Image | Create Docker version of app |
-| Deploy | Send app to correct environment |
-
+- `develop` → pipeline may run the app locally with the packaged JAR.
+- `staging` → pipeline builds and pushes a Docker image for testing on staging.
+- `main` → pipeline builds, pushes and deploys the image to production (as defined in the file).
 
 ---
