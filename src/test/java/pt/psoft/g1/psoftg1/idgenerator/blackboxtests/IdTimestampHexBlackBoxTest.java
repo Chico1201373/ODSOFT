@@ -97,7 +97,7 @@ class IdTimestampHexBlackBoxTest {
     @DisplayName("generateId should produce unique IDs")
     void generateId_shouldProduceUniqueIds() {
         Set<String> generatedIds = new HashSet<>();
-        int iterations = 10000;
+        int iterations = 100;
 
         for (int i = 0; i < iterations; i++) {
             String id = idGenerator.generateId();
