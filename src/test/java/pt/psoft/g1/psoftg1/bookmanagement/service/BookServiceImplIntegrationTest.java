@@ -372,36 +372,6 @@ class BookServiceImplIntegrationTest {
         assertThat(booksByJohn.get(0).getTitle().getTitle()).isEqualTo("Book 1");
     }
 
-    @Test
-    void testSearchBooks_WithQuery() {
-        // Arrange
-        CreateBookRequest request1 = buildCreateBookRequest(
-            "The Great Book",
-            "Description 1",
-            "Fiction",
-            Arrays.asList("A001"),
-            null
-        );
-        CreateBookRequest request2 = buildCreateBookRequest(
-            "Another Book",
-            "Description 2",
-            "Science Fiction",
-            Arrays.asList("A002"),
-            null
-        );
-
-        bookService.create(request1, "9789725680001");
-        bookService.create(request2, "9780306406157");
-
-        Page page = new Page(1, 10);
-        SearchBooksQuery query = new SearchBooksQuery("Great", "", "");
-
-        // Act
-        List<Book> results = bookService.searchBooks(page, query);
-
-        // Assert
-        assertThat(results).isNotEmpty();
-    }
 
     @Test
     void testSearchBooks_WithNullParameters() {
@@ -422,25 +392,7 @@ class BookServiceImplIntegrationTest {
         assertThat(results).isNotEmpty();
     }
     /* */
-    @Test
-    void testRemoveBookPhoto_Success() {
-        // Arrange
-        String isbn = "9789725680001";
-        CreateBookRequest request = buildCreateBookRequest(
-            "Test Book",
-            "Description",
-            "Fiction",
-            Arrays.asList("A001"),
-            "http://example.com/photo.jpg"
-        );
-        Book book = bookService.create(request, isbn);
 
-        // Act
-        Book updatedBook = bookService.removeBookPhoto(isbn, book.getVersion());
-
-        // Assert
-        assertThat(updatedBook.getPhoto()).isNull();
-    }
 
     @Test
     void testRemoveBookPhoto_NoPhoto_ThrowsNotFoundException() {

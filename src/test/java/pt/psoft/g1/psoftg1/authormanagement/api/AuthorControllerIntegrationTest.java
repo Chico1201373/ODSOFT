@@ -21,7 +21,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Based on https://www.baeldung.com/spring-boot-testing
+ * Based on https:
  * <p>Adaptations to Junit 5 with ChatGPT
  */
 @ExtendWith(SpringExtension.class)

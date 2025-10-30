@@ -19,7 +19,7 @@ public class BioTest {
 
 
     /**
-     * Text from <a href="https://www.lipsum.com/">Lorem Ipsum</a> generator.
+     * Text from <a href="https:
      */
     @Test
     void ensureBioMustNotBeOversize() {
