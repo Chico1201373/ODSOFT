@@ -1,9 +1,5 @@
 pipeline {
 
-    triggers {
-        githubPush()
-    }
-
     agent any
 
     environment {
