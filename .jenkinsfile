@@ -157,7 +157,6 @@ pipeline {
             archiveArtifacts artifacts: 'app.log, target/jacoco-e2e.exec, target/site/jacoco-e2e/jacoco.xml', allowEmptyArchive: true
             }
         }
-    }
 
     }
 
