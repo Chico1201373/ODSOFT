@@ -38,7 +38,6 @@ services:
       - TZ=Europe/Lisbon
     ports:
       - "8082:8080"
-      - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
@@ -50,7 +49,7 @@ services:
     image: sonarqube:latest
     container_name: sonarqube
     ports:
-      - "9000:9000" #http://localhost:9000
+      - "9000:9000" 
     environment:
       SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
     volumes:

@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @Transactional
-class CreateAuthorServiceBlackBoxTest {
+class CreateAuthorServiceBlackBoxTest_IT {
 
     @Autowired
     private AuthorService authorService;
