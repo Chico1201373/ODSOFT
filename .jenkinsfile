@@ -1,5 +1,4 @@
 pipeline {
-
     agent any
 
     environment {
@@ -8,9 +7,7 @@ pipeline {
         SONAR_PROJECT_KEY = 'myapp-sonar'
     }
 
-
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
@@ -62,6 +59,80 @@ pipeline {
             }
         }
 
+        stage('E2E API (Newman)') {
+            environment {
+                JACOCO_VERSION = '0.8.11'
+                JACOCO_AGENT   = "${WORKSPACE}/.m2/repository/org/jacoco/org.jacoco.agent/${JACOCO_VERSION}/org.jacoco.agent-${JACOCO_VERSION}-runtime.jar"
+                APP_PORT       = '8081' // adapte si besoin
+                HEALTH_URL     = "http://localhost:${APP_PORT}/actuator/health" // remplace si pas d'actuator
+            }
+            steps {
+                sh '''
+      set -e
+
+      # --- Démarrage app instrumentée ---
+      jar=$(ls target/*.jar | head -n 1)
+      nohup java -javaagent:"${JACOCO_AGENT}=destfile=target/jacoco-e2e.exec,append=true" \
+        -jar "$jar" > app.log 2>&1 & echo $! > app.pid
+
+      # --- Healthcheck (timeout 60s) ---
+      for i in $(seq 1 60); do
+        curl -fsS "$HEALTH_URL" >/dev/null && break || sleep 1
+      done
+      curl -fsS "$HEALTH_URL" >/dev/null || { echo "App KO, derniers logs:"; tail -n 200 app.log || true; exit 1; }
+
+      # --- Exécution Newman (on capture le code retour sans casser la publication des rapports) ---
+      mkdir -p reports/junit
+      set +e
+      npx -y newman run "Docs/Psoft-G1.postman_collection.json" \
+        -e "Docs/Psoft-G1.postman_environment.json" \
+        --reporters junit --reporter-junit-export reports/junit/newman-e2e.xml
+      NEWMAN_RC=$?
+      set -e
+      echo $NEWMAN_RC > newman.rc
+    '''
+            }
+            post {
+                always {
+                    sh '''
+        set +e
+        # Stop app si encore vivante
+        [ -f app.pid ] && kill $(cat app.pid) 2>/dev/null || true
+
+        # Rapport JaCoCo E2E (XML pour Jenkins Coverage)
+        mvn -q -DskipTests org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
+          -Djacoco.dataFile=target/jacoco-e2e.exec \
+          -Djacoco.outputDirectory=target/site/jacoco-e2e || true
+      '''
+                    // JUnit des tests Newman
+                    junit 'reports/junit/*.xml'
+
+                    // Couverture E2E (JaCoCo)
+                    recordCoverage(
+        tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco-e2e/jacoco.xml']],
+        id: 'jacoco-e2e',
+        name: 'JaCoCo E2E Coverage',
+        sourceCodeRetention: 'LAST_BUILD',
+        sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
+        qualityGates: [
+          [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'NOTE'],
+          [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']
+        ]
+      )
+
+                    archiveArtifacts artifacts: 'app.log, target/jacoco-e2e.exec, target/site/jacoco-e2e/jacoco.xml, newman.rc', allowEmptyArchive: true
+
+                    // Échoue la stage si Newman a échoué (après publications)
+                    script {
+                        def rc = fileExists('newman.rc') ? readFile('newman.rc').trim() : '0'
+                        if (rc != '0') {
+                            error "Newman a échoué (exit ${rc})"
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Mutation Testing') {
             steps {
                 sh 'mvn org.pitest:pitest-maven:mutationCoverage'
@@ -102,65 +173,7 @@ pipeline {
             }
         }
 
-    stage('E2E API (Newman)') {
-        environment {
-            JACOCO_VERSION = '0.8.11'
-            JACOCO_AGENT   = "${WORKSPACE}/.m2/repository/org/jacoco/org.jacoco.agent/${JACOCO_VERSION}/org.jacoco.agent-${JACOCO_VERSION}-runtime.jar"
-        }
-        steps {
-            sh '''
-
-            jar=$(ls target/*.jar | head -n 1)
-
-            nohup java -javaagent:"${JACOCO_AGENT}=destfile=target/jacoco-e2e.exec,append=true" \
-                -jar "$jar" > app.log 2>&1 & echo $! > app.pid
-
-            sleep 5
-
-            if ! command -v newman >/dev/null 2>&1; then npm i -g newman; fi
-
-            mkdir -p reports/junit
-            newman run "Docs/Psoft-G1.postman_collection.json" \
-                -e "Docs/Psoft-G1.postman_environment.json" \
-                --reporters junit \
-                --reporter-junit-export reports/junit/newman-e2e.xml
-            '''
-        }
-        post {
-            always {
-            sh '''
-                if [ -f app.pid ]; then kill $(cat app.pid) || true; fi
-
-                mvn -q -DskipTests \
-                org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
-                -Djacoco.dataFile=target/jacoco-e2e.exec \
-                -Djacoco.outputDirectory=target/site/jacoco-e2e
-            '''
-
-            // Tests E2E (JUnit)
-            junit 'reports/junit/*.xml'
-
-            // Couverture E2E (JaCoCo XML) — pas d'HTML publisher
-            recordCoverage(
-                tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco-e2e/jacoco.xml']],
-                id:   'jacoco-e2e',
-                name: 'JaCoCo E2E Coverage',
-                sourceCodeRetention: 'LAST_BUILD',
-                sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
-                qualityGates: [
-                [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'NOTE'],
-                [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']
-                ]
-            )
-
-            // Artefacts utiles (debug)
-            archiveArtifacts artifacts: 'app.log, target/jacoco-e2e.exec, target/site/jacoco-e2e/jacoco.xml', allowEmptyArchive: true
-            }
-        }
-
-    }
-
- //  Build & Push Docker image only for staging or main
+        //  Build & Push Docker image only for staging or main
         stage('Build Docker Image') {
             when {
                 expression { fileExists('Dockerfile') }
@@ -188,14 +201,14 @@ pipeline {
                 branch 'main'
             }
             steps {
-                echo "Deploying to PRODUCTION (Docker)..."
+                echo 'Deploying to PRODUCTION (Docker)...'
                 withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
                         docker pull "$DOCKER_USER/myapp:main"
                         docker stop myapp || true
                         docker rm myapp || true
-                        docker run -d --name myapp -p 8081:8081 "$DOCKER_USER/myapp:main"                    
+                        docker run -d --name myapp -p 8081:8081 "$DOCKER_USER/myapp:main"
                         '''
                 }
             }
@@ -207,7 +220,7 @@ pipeline {
                 branch 'develop'
             }
             steps {
-                echo "🚀 Running local JAR for DEVELOPMENT..."
+                echo '🚀 Running local JAR for DEVELOPMENT...'
                 sh '''
                     pkill -f "psoft-g1-0.0.1-SNAPSHOT.jar" || true
                     nohup java -jar target/psoft-g1-0.0.1-SNAPSHOT.jar > app.log 2>&1 &
@@ -218,10 +231,10 @@ pipeline {
 
     post {
         failure {
-            echo "❌ Pipeline completed unsuccessfully!"
+            echo '❌ Pipeline completed unsuccessfully!'
         }
         success {
-            echo "✅ Pipeline completed successfully!"
+            echo '✅ Pipeline completed successfully!'
         }
     }
 }
