@@ -25,6 +25,7 @@ import pt.psoft.g1.psoftg1.usermanagement.model.Reader;
 import pt.psoft.g1.psoftg1.usermanagement.repositories.UserRepository;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import java.time.LocalDate;
@@ -47,7 +48,6 @@ public class GenreControllerIT {
 
     @Autowired
     private AuthorRepository authorRepository;
-
 
     @Autowired
     private LendingService lendingService;
@@ -160,6 +160,30 @@ public class GenreControllerIT {
     @Test
     @Transactional
     @WithMockUser(username = "user", roles = { "USER", "LIBRARIAN" })
+    void shouldReturnBadRequest_whenAvgDurationInvalidDateRange() throws Exception {
+
+        mockMvc.perform(get("/api/genres/lendingsAverageDurationPerMonth")
+                .param("startDate", LocalDate.now().toString())
+                .param("endDate", LocalDate.now().minusMonths(1).toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Bad Request"));
+    }
+
+    @Test
+    @Transactional
+    @WithMockUser(username = "user", roles = { "USER", "LIBRARIAN" })
+    void shouldReturnBadRequest_whenAvgDurationNotParsableDates() throws Exception {
+
+        mockMvc.perform(get("/api/genres/lendingsAverageDurationPerMonth")
+                .param("startDate", "invalid-date")
+                .param("endDate", "another-invalid-date"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Bad Request"));
+    }
+
+    @Test
+    @Transactional
+    @WithMockUser(username = "user", roles = { "USER", "LIBRARIAN" })
     void shouldReturnOk_whenAvgDurationDataExistsInRange() throws Exception {
 
         Genre poetry = genreRepository.save(new Genre("Poetry"));
@@ -170,13 +194,11 @@ public class GenreControllerIT {
         ReaderDetails rd = readerRepository
                 .save(new ReaderDetails(1001, reader, "1990-01-01", "912345678", true, false, false, null, null));
 
-        
-        Lending l1 = lendingService.create(new CreateLendingRequest(b.getIsbn(), rd.getReaderNumber())); 
+        Lending l1 = lendingService.create(new CreateLendingRequest(b.getIsbn(), rd.getReaderNumber()));
 
         l1 = lendingService.setReturned(l1.getLendingNumber(),
                 new pt.psoft.g1.psoftg1.lendingmanagement.services.SetLendingReturnedRequest("Returned on time"),
                 l1.getVersion()); // mark returned today
-       
 
         String start = LocalDate.now().withDayOfMonth(1).toString();
         String end = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth()).toString();
@@ -187,5 +209,76 @@ public class GenreControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.items").isArray());
+    }
+
+    @Test
+    @Transactional
+    @WithMockUser(username = "user", roles = { "USER", "LIBRARIAN" })
+    void shouldReturnOk_whenGettingAverageLendings_withValidBody() throws Exception {
+
+        Genre poetry = genreRepository.save(new Genre("Poetry"));
+        Author a = authorRepository.save(new Author("auth-1", "Bob", "bio", null));
+        Book b = bookRepository.save(new Book("book-1", "9780134685991", "P1", "desc", poetry, List.of(a), null));
+
+        Reader reader = userRepository.save(new Reader("user-1@test.com", "Password123!"));
+        ReaderDetails rd = readerRepository
+                .save(new ReaderDetails(1001, reader, "1990-01-01", "912345678", true, false, false, null, null));
+
+        lendingService.create(new CreateLendingRequest(b.getIsbn(), rd.getReaderNumber()));
+
+        String body = """
+                  {
+                    "page":  { "number": 1, "limit": 10 },
+                    "query": { "year": 2025, "month": 10 }
+                  }
+                """;
+
+        mockMvc.perform(post("/api/genres/avgLendingsPerGenre")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.items").exists());
+    }
+
+    @Test
+    @Transactional
+    @WithMockUser(username = "user", roles = { "USER", "LIBRARIAN" })
+    void shouldReturnBadRequest_whenGettingAverageLendings_withNonValidBody() throws Exception {
+
+        Genre poetry = genreRepository.save(new Genre("Poetry"));
+        Author a = authorRepository.save(new Author("auth-1", "Bob", "bio", null));
+        Book b = bookRepository.save(new Book("book-1", "9780134685991", "P1", "desc", poetry, List.of(a), null));
+
+        Reader reader = userRepository.save(new Reader("user-1@test.com", "Password123!"));
+        ReaderDetails rd = readerRepository
+                .save(new ReaderDetails(1001, reader, "1990-01-01", "912345678", true, false, false, null, null));
+
+        lendingService.create(new CreateLendingRequest(b.getIsbn(), rd.getReaderNumber()));
+
+        String body = """
+                  {
+                    "page":  { "number": 0, "limit": 100 },
+                    "query": { "year": 2025, "month": 10 }
+                  }
+                """;
+
+        mockMvc.perform(post("/api/genres/avgLendingsPerGenre")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.items").exists());
+    }
+
+    @Test
+    @Transactional
+    @WithMockUser(username = "user", roles = { "USER", "LIBRARIAN" })
+    void shouldReturnBadRequest_whenAvgLendingsBodyInvalid() throws Exception {
+
+        mockMvc.perform(post("/api/genres/avgLendingsPerGenre")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isBadRequest());
     }
 }
