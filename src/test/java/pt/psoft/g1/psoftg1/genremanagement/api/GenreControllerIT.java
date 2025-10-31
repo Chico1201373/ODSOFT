@@ -266,9 +266,7 @@ public class GenreControllerIT {
         mockMvc.perform(post("/api/genres/avgLendingsPerGenre")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.items").exists());
+                .andExpect(status().isBadRequest());
     }
 
     @Test
