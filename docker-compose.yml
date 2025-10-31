@@ -1,33 +1,6 @@
 version: '3.8'
 
 services:
-  books-api:
-    image: odsoft
-    build: .
-    container_name: books-api
-    ports:
-      - "8081:8081"
-    networks:
-      - test-network
-    restart: unless-stopped
-
-  k6-odsoft:
-    platform: "linux/amd64"
-    image: grafana/k6:latest
-    container_name: k6-odsoft
-    volumes:
-      - ./tests:/tests
-    networks:
-      - test-network
-    entrypoint: ["tail", "-f", "/dev/null"] # Keeps the container running for executing tests
-    depends_on:
-      - books-api
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: 8g
-
   jenkins:
     build:
       context: .
