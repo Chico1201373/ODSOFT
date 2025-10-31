@@ -102,6 +102,65 @@ pipeline {
             }
         }
 
+    stage('E2E API (Newman)') {
+        environment {
+            JACOCO_VERSION = '0.8.11'
+            JACOCO_AGENT   = "${WORKSPACE}/.m2/repository/org/jacoco/org.jacoco.agent/${JACOCO_VERSION}/org.jacoco.agent-${JACOCO_VERSION}-runtime.jar"
+        }
+        steps {
+            sh '''
+
+            jar=$(ls target/*.jar | head -n 1)
+
+            nohup java -javaagent:"${JACOCO_AGENT}=destfile=target/jacoco-e2e.exec,append=true" \
+                -jar "$jar" > app.log 2>&1 & echo $! > app.pid
+
+            sleep 5
+
+            if ! command -v newman >/dev/null 2>&1; then npm i -g newman; fi
+
+            mkdir -p reports/junit
+            newman run "Docs/Psoft-G1.postman_collection.json" \
+                -e "Docs/Psoft-G1.postman_environment.json" \
+                --reporters junit \
+                --reporter-junit-export reports/junit/newman-e2e.xml
+            '''
+        }
+        post {
+            always {
+            sh '''
+                if [ -f app.pid ]; then kill $(cat app.pid) || true; fi
+
+                mvn -q -DskipTests \
+                org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
+                -Djacoco.dataFile=target/jacoco-e2e.exec \
+                -Djacoco.outputDirectory=target/site/jacoco-e2e
+            '''
+
+            // Tests E2E (JUnit)
+            junit 'reports/junit/*.xml'
+
+            // Couverture E2E (JaCoCo XML) — pas d'HTML publisher
+            recordCoverage(
+                tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco-e2e/jacoco.xml']],
+                id:   'jacoco-e2e',
+                name: 'JaCoCo E2E Coverage',
+                sourceCodeRetention: 'LAST_BUILD',
+                sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
+                qualityGates: [
+                [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'NOTE'],
+                [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']
+                ]
+            )
+
+            // Artefacts utiles (debug)
+            archiveArtifacts artifacts: 'app.log, target/jacoco-e2e.exec, target/site/jacoco-e2e/jacoco.xml', allowEmptyArchive: true
+            }
+        }
+    }
+
+    }
+
  //  Build & Push Docker image only for staging or main
         stage('Build Docker Image') {
             when {
