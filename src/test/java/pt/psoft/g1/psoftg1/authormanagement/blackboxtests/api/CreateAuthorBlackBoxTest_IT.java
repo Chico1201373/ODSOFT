@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class CreateAuthorBlackBoxTest {
+class CreateAuthorBlackBoxTest_IT {
 
     @Autowired
     private MockMvc mockMvc;
