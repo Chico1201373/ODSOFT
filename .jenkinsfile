@@ -7,8 +7,10 @@ pipeline {
         SONAR_PROJECT_KEY = 'myapp-sonar'
     }
     tools {
-        maven 'Maven',
+        maven 'Maven'
+        nodejs 'Nodejs'
     }
+
     stages {
         stage('Checkout') {
             steps {
