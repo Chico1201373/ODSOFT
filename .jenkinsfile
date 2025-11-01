@@ -65,7 +65,7 @@ pipeline {
 
         stage('E2E API (Newman)') {
             environment {
-                JACOCO_VERSION = '0.8.11'
+                JACOCO_VERSION = '0.8.10'
                 APP_PORT = '8081'
                 DESTFILE = "${WORKSPACE}/target/jacoco-e2e.exec"
                 JACOCO_AGENT = "${HOME}/.m2/repository/org/jacoco/org.jacoco.agent/${JACOCO_VERSION}/org.jacoco.agent-${JACOCO_VERSION}-runtime.jar"
