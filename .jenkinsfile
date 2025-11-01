@@ -8,7 +8,6 @@ pipeline {
     }
     tools {
         maven 'Maven',
-        // nodejs 'Nodejs'
     }
     stages {
         stage('Checkout') {
