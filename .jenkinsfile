@@ -68,30 +68,29 @@ pipeline {
                 JACOCO_VERSION = '0.8.10'
                 APP_PORT = '8081'
                 DESTFILE = "${WORKSPACE}/target/jacoco-e2e.exec"
-                JACOCO_AGENT = "${HOME}/.m2/repository/org/jacoco/org.jacoco.agent/${JACOCO_VERSION}/org.jacoco.agent-${JACOCO_VERSION}-runtime.jar"
-                JACOCO_CLI   = "${HOME}/.m2/repository/org/jacoco/org.jacoco.cli/${JACOCO_VERSION}/org.jacoco.cli-${JACOCO_VERSION}-nodeps.jar"
+
+                AGENT_JAR  = "${HOME}/.m2/repository/org/jacoco/org.jacoco.agent/${JACOCO_VERSION}/org.jacoco.agent-${JACOCO_VERSION}-runtime.jar"
+                DESTFILE   = "${WORKSPACE}/target/jacoco-e2e.exec"
             }
             steps {
                 sh '''
                 set -euo pipefail
-                mkdir -p target reports/junit reports/newman
 
                 mvn -q -DskipTests dependency:get -Dartifact=org.jacoco:org.jacoco.agent:${JACOCO_VERSION}:jar:runtime
-                mvn -q -DskipTests dependency:get -Dartifact=org.jacoco:org.jacoco.cli:${JACOCO_VERSION}:jar:nodeps
 
-                echo "JaCoCo agent: ${JACOCO_AGENT}"
-                echo "JaCoCo CLI:   ${JACOCO_CLI}"
+                mkdir -p target reports/junit reports/newman
 
-                nohup java -javaagent:"${JACOCO_AGENT}=output=tcpserver,address=127.0.0.1,port=6300,append=true" \
-                    -jar target/psoft-g1-0.0.1-SNAPSHOT.jar > app.log 2>&1 & echo $! > app.pid
+                echo "Starting app with JaCoCo agent (FILE mode)..."
+                echo "AGENT_JAR=${AGENT_JAR}"
+                echo "DESTFILE =${DESTFILE}"
 
-                ps -p "$(cat app.pid)" -o pid=,command=
+                nohup java -Djava.net.preferIPv4Stack=true \
+                    -javaagent:"${AGENT_JAR}=destfile=${DESTFILE},append=true,output=file" \
+                    -jar target/psoft-g1-0.0.1-SNAPSHOT.jar \
+                    > app.log 2>&1 & echo $! > app.pid
 
-
-                echo "Checking for JaCoCo TCP server listener on port 6300 ..."
-                (command -v lsof >/dev/null && lsof -nP -iTCP:6300 -sTCP:LISTEN) || \
-                (netstat -an 2>/dev/null | grep -E 'LISTEN|LISTENING' | grep ':6300') || \
-                echo "WARN: no listener on 6300 (may be normal if netstat/lsof absent)"
+                PID=$(cat app.pid)
+                echo "Java command line:"; ps -p "$PID" -o pid=,args=
 
                 set +e
                 npx -y -p newman -p newman-reporter-htmlextra \
@@ -103,27 +102,38 @@ pipeline {
                 NEWMAN_RC=$?
                 set -e
                 echo $NEWMAN_RC > newman.rc
-
-                echo "Dumping JaCoCo exec to ${DESTFILE} ..."
-                java -jar "${JACOCO_CLI}" dump --address localhost --port 6300 --destfile "${DESTFILE}" --reset
-
-                if [ -f app.pid ]; then
-                    PID=$(cat app.pid)
-                    kill "$PID" 2>/dev/null || true
-                    for i in {1..40}; do
-                    kill -0 "$PID" 2>/dev/null || break
-                    sleep 0.5
-                    done
-                    rm -f app.pid
-                fi
-
-                mvn -q -DskipTests org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
-                    -Djacoco.dataFile="${DESTFILE}" \
-                    -Djacoco.outputDirectory=target/site/jacoco-e2e || true
                 '''
             }
             post {
                 always {
+                    sh '''
+                        sleep 10
+                        set +e
+                        if [ -f app.pid ]; then
+                        PID=$(cat app.pid)
+                        echo "Stopping app PID=$PID ..."
+                        kill "$PID" 2>/dev/null || true
+                        # Wait for the process to stop fully to allow JaCoCo to flush the exec file
+                        for i in {1..40}; do
+                            kill -0 "$PID" 2>/dev/null || { echo "Stopped."; break; }
+                            sleep 0.5
+                        done
+                        # Extra delay to ensure file is flushed
+                        sleep 1
+                        fi
+                        rm -f app.pid
+
+                        echo "Contents of target directory:"; ls -lah target || true
+                        [ -s "${DESTFILE}" ] || echo "WARNING: ${DESTFILE} is missing or empty"
+
+                        # Generate JaCoCo XML report only if exec file exists and is not empty
+                        if [ -s "${DESTFILE}" ]; then
+                        mvn -q -DskipTests org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
+                            -Djacoco.dataFile="${DESTFILE}" \
+                            -Djacoco.outputDirectory=target/site/jacoco-e2e || true
+                        fi
+                    '''
+
                     junit 'reports/junit/*.xml'
                     recordCoverage(
                         tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco-e2e/jacoco.xml']],
