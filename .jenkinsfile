@@ -1,14 +1,12 @@
 pipeline {
     agent any
 
-    tools {
-        maven 'Maven'  
-    }
-    
     environment {
         BRANCH_NAME_SANITIZED = "${env.GIT_BRANCH ?: env.BRANCH_NAME}".replaceAll('/', '-')
         DOCKER_IMAGE = "myapp:${BRANCH_NAME_SANITIZED}"
         SONAR_PROJECT_KEY = 'myapp-sonar'
+        PATH = "/opt/homebrew/bin/mvn" 
+
     }
 
     stages {
