@@ -4,8 +4,9 @@ pipeline {
     environment {
         BRANCH_NAME_SANITIZED = "${env.GIT_BRANCH ?: env.BRANCH_NAME}".replaceAll('/', '-')
         DOCKER_IMAGE = "myapp:${BRANCH_NAME_SANITIZED}"
-        SONAR_PROJECT_KEY = 'myapp-sonar'    }
-tools {
+        SONAR_PROJECT_KEY = 'myapp-sonar'
+    }
+    tools {
         maven 'Maven'
     }
     stages {
@@ -64,8 +65,8 @@ tools {
             environment {
                 JACOCO_VERSION = '0.8.11'
                 JACOCO_AGENT   = "${WORKSPACE}/.m2/repository/org/jacoco/org.jacoco.agent/${JACOCO_VERSION}/org.jacoco.agent-${JACOCO_VERSION}-runtime.jar"
-                APP_PORT       = '8081' // adapte si besoin
-                HEALTH_URL     = "http://localhost:${APP_PORT}/actuator/health" // remplace si pas d'actuator
+                APP_PORT       = '8081' 
+                HEALTH_URL     = "http://localhost:${APP_PORT}/actuator/health" 
             }
             steps {
                 sh '''
@@ -86,7 +87,7 @@ tools {
             }
             post {
                 always {
-                                sh '''
+                sh '''
                     set +e
                     [ -f app.pid ] && kill $(cat app.pid) 2>/dev/null || true
 
