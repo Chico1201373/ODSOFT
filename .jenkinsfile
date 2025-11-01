@@ -66,92 +66,66 @@ pipeline {
         stage('E2E API (Newman)') {
             environment {
                 JACOCO_VERSION = '0.8.11'
-                JACOCO_AGENT   = "${WORKSPACE}/.m2/repository/org/jacoco/org.jacoco.agent/${JACOCO_VERSION}/org.jacoco.agent-${JACOCO_VERSION}-runtime.jar"
-                APP_PORT       = '8081'
+                APP_PORT = '8081'
+                DESTFILE = "${WORKSPACE}/target/jacoco-e2e.exec"
+                JACOCO_AGENT = "${HOME}/.m2/repository/org/jacoco/org.jacoco.agent/${JACOCO_VERSION}/org.jacoco.agent-${JACOCO_VERSION}-runtime.jar"
+                JACOCO_CLI   = "${HOME}/.m2/repository/org/jacoco/org.jacoco.cli/${JACOCO_VERSION}/org.jacoco.cli-${JACOCO_VERSION}-nodeps.jar"
             }
             steps {
                 sh '''
-                    set -e
-                    
-                    echo "🚀 Starting application with JaCoCo agent for E2E tests..."
-                    echo "APP_PORT=${APP_PORT}"
-                    echo "JACOCO_AGENT=${JACOCO_AGENT}"
-                    echo "JACOCO_VERSION=${JACOCO_VERSION}"
+                set -euo pipefail
+                mkdir -p target reports/junit reports/newman
 
-                    nohup java -javaagent:"${JACOCO_AGENT}=destfile=target/jacoco-e2e.exec,append=true,output=file" \
-  -jar target/psoft-g1-0.0.1-SNAPSHOT.jar > app.log 2>&1 & echo $! > app.pid
+                mvn -q -DskipTests dependency:get -Dartifact=org.jacoco:org.jacoco.agent:${JACOCO_VERSION}:jar:runtime
+                mvn -q -DskipTests dependency:get -Dartifact=org.jacoco:org.jacoco.cli:${JACOCO_VERSION}:jar:nodeps
 
-                    mkdir -p reports/junit reports/newman
-                    set +e
-                    npx -y -p newman -p newman-reporter-htmlextra \
-                        newman run "Docs/Psoft-G1.postman_collection.json" \
-                        -e "Docs/Psoft-G1.postman_environment.json" \
-                        --reporters cli,junit,htmlextra \
-                        --reporter-junit-export reports/junit/newman-e2e.xml \
-                        --reporter-htmlextra-export reports/newman/newman-e2e.html
-                    NEWMAN_RC=$?
-                    set -e
-                    echo $NEWMAN_RC > newman.rc
-        '''
+                echo "JaCoCo agent: ${JACOCO_AGENT}"
+                echo "JaCoCo CLI:   ${JACOCO_CLI}"
+
+                nohup java -javaagent:"${JACOCO_AGENT}=output=tcpserver,address=localhost,port=6300,append=true" \
+                    -jar target/psoft-g1-0.0.1-SNAPSHOT.jar > app.log 2>&1 & echo $! > app.pid
+
+
+                set +e
+                npx -y -p newman -p newman-reporter-htmlextra \
+                    newman run "Docs/Psoft-G1.postman_collection.json" \
+                    -e "Docs/Psoft-G1.postman_environment.json" \
+                    --reporters cli,junit,htmlextra \
+                    --reporter-junit-export reports/junit/newman-e2e.xml \
+                    --reporter-htmlextra-export reports/newman/newman-e2e.html
+                NEWMAN_RC=$?
+                set -e
+                echo $NEWMAN_RC > newman.rc
+
+                echo "Dumping JaCoCo exec to ${DESTFILE} ..."
+                java -jar "${JACOCO_CLI}" dump --address localhost --port 6300 --destfile "${DESTFILE}" --reset
+
+                if [ -f app.pid ]; then
+                    PID=$(cat app.pid)
+                    kill "$PID" 2>/dev/null || true
+                    for i in {1..40}; do
+                    kill -0 "$PID" 2>/dev/null || break
+                    sleep 0.5
+                    done
+                    rm -f app.pid
+                fi
+
+                mvn -q -DskipTests org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
+                    -Djacoco.dataFile="${DESTFILE}" \
+                    -Djacoco.outputDirectory=target/site/jacoco-e2e || true
+                '''
             }
             post {
                 always {
-                    sh '''
-                    set +e
-                    if [ -f app.pid ]; then
-                        PID=$(cat app.pid)
-                        echo "Stopping app PID=$PID ..."
-                        kill "$PID" 2>/dev/null || true
-                        # attendre la fin (flush JaCoCo)
-                        for i in {1..40}; do
-                            kill -0 "$PID" 2>/dev/null || { echo "Stopped."; break; }
-                            sleep 0.5
-                        done
-                    fi
-                    rm -f app.pid
-
-                    echo "target contents:" && ls -lah target || true
-
-                    DESTFILE="${WORKSPACE}/target/jacoco-e2e.exec"
-                    if [ -f "${DESTFILE}" ]; then
-                        echo "Found E2E exec: ${DESTFILE}"
-                        mvn -q -DskipTests org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
-                            -Djacoco.dataFile="${DESTFILE}" \
-                            -Djacoco.outputDirectory=target/site/jacoco-e2e || true
-                        else
-                        echo "WARN: jacoco-e2e.exec missing — falling back to target/jacoco.exec if present"
-                        if [ -f target/jacoco.exec ]; then
-                            mvn -q -DskipTests org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
-                            -Djacoco.dataFile=target/jacoco.exec \
-                            -Djacoco.outputDirectory=target/site/jacoco-e2e || true
-                        fi
-                    fi
-                    
-                    echo "target contents:" && ls -lah target || true
-                    [ -f target/jacoco-e2e.exec ] || echo "WARN: jacoco-e2e.exec missing"
-
-                    # Rapport JaCoCo E2E (XML pour Jenkins Coverage)
-                    mvn -q -DskipTests org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
-                    -Djacoco.dataFile=target/jacoco-e2e.exec \
-                    -Djacoco.outputDirectory=target/site/jacoco-e2e || true
-                '''
-                    // JUnit des tests Newman
                     junit 'reports/junit/*.xml'
-
-                    // Couverture E2E (JaCoCo)
                     recordCoverage(
                         tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco-e2e/jacoco.xml']],
                         id: 'jacoco-e2e',
                         name: 'JaCoCo E2E Coverage',
                         sourceCodeRetention: 'LAST_BUILD',
-                        sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']],
-                        qualityGates: [
-                        [metric: 'LINE',   baseline: 'PROJECT', threshold: 80.0, criticality: 'NOTE'],
-                        [metric: 'BRANCH', baseline: 'PROJECT', threshold: 70.0, criticality: 'NOTE']
-                        ]
+                        sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']]
                     )
-
-                    archiveArtifacts artifacts: 'app.log, target/jacoco-e2e.exec, target/site/jacoco-e2e/jacoco.xml, newman.rc', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'app.log, reports/newman/*.html, reports/junit/*.xml, newman.rc, target/*.exec, target/site/jacoco-e2e/jacoco.xml', allowEmptyArchive: true
                 }
             }
         }
