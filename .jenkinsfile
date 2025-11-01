@@ -82,9 +82,16 @@ pipeline {
                 echo "JaCoCo agent: ${JACOCO_AGENT}"
                 echo "JaCoCo CLI:   ${JACOCO_CLI}"
 
-                nohup java -javaagent:"${JACOCO_AGENT}=output=tcpserver,address=localhost,port=6300,append=true" \
+                nohup java -javaagent:"${JACOCO_AGENT}=output=tcpserver,address=127.0.0.1,port=6300,append=true" \
                     -jar target/psoft-g1-0.0.1-SNAPSHOT.jar > app.log 2>&1 & echo $! > app.pid
 
+                ps -p "$(cat app.pid)" -o pid=,command=
+
+
+                echo "Checking for JaCoCo TCP server listener on port 6300 ..."
+                (command -v lsof >/dev/null && lsof -nP -iTCP:6300 -sTCP:LISTEN) || \
+                (netstat -an 2>/dev/null | grep -E 'LISTEN|LISTENING' | grep ':6300') || \
+                echo "WARN: no listener on 6300 (may be normal if netstat/lsof absent)"
 
                 set +e
                 npx -y -p newman -p newman-reporter-htmlextra \
