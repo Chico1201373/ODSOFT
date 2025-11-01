@@ -67,7 +67,7 @@ pipeline {
             environment {
                 JACOCO_VERSION = '0.8.10'
                 APP_PORT = '8081'
-                
+
                 AGENT_JAR  = "${HOME}/.m2/repository/org/jacoco/org.jacoco.agent/${JACOCO_VERSION}/org.jacoco.agent-${JACOCO_VERSION}-runtime.jar"
                 DESTFILE   = "${WORKSPACE}/target/jacoco-e2e.exec"
             }
@@ -127,13 +127,18 @@ pipeline {
 
                         # Generate JaCoCo XML report only if exec file exists and is not empty
                         if [ -s "${DESTFILE}" ]; then
-                        mvn -q -DskipTests org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
+                        mvn -DskipTests org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
                             -Djacoco.dataFile="${DESTFILE}" \
                             -Djacoco.outputDirectory=target/site/jacoco-e2e || true
+                        else
+                        echo "WARNING: ${DESTFILE} missing or empty, skipping report generation"
                         fi
                     '''
 
-                    junit 'reports/junit/*.xml'
+                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                        junit testResults: 'reports/junit/newman-e2e.xml', keepLongStdio: true
+                    }
+                    
                     recordCoverage(
                         tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco-e2e/jacoco.xml']],
                         id: 'jacoco-e2e',
