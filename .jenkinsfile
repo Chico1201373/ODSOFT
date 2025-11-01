@@ -72,9 +72,14 @@ pipeline {
             steps {
                 sh '''
                     set -e
+                    
+                    echo "🚀 Starting application with JaCoCo agent for E2E tests..."
+                    echo "APP_PORT=${APP_PORT}"
+                    echo "JACOCO_AGENT=${JACOCO_AGENT}"
+                    echo "JACOCO_VERSION=${JACOCO_VERSION}"
 
                     nohup java -javaagent:"${JACOCO_AGENT}=destfile=target/jacoco-e2e.exec,append=true,output=file" \
-                        -jar target/psoft-g1-0.0.1-SNAPSHOT.jar > app.log 2>&1 & echo $! > app.pid
+  -jar target/psoft-g1-0.0.1-SNAPSHOT.jar > app.log 2>&1 & echo $! > app.pid
 
                     mkdir -p reports/junit reports/newman
                     set +e
@@ -93,8 +98,35 @@ pipeline {
                 always {
                     sh '''
                     set +e
-                    [ -f app.pid ] && kill $(cat app.pid) 2>/dev/null || true
+                    if [ -f app.pid ]; then
+                        PID=$(cat app.pid)
+                        echo "Stopping app PID=$PID ..."
+                        kill "$PID" 2>/dev/null || true
+                        # attendre la fin (flush JaCoCo)
+                        for i in {1..40}; do
+                            kill -0 "$PID" 2>/dev/null || { echo "Stopped."; break; }
+                            sleep 0.5
+                        done
+                    fi
+                    rm -f app.pid
 
+                    echo "target contents:" && ls -lah target || true
+
+                    DESTFILE="${WORKSPACE}/target/jacoco-e2e.exec"
+                    if [ -f "${DESTFILE}" ]; then
+                        echo "Found E2E exec: ${DESTFILE}"
+                        mvn -q -DskipTests org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
+                            -Djacoco.dataFile="${DESTFILE}" \
+                            -Djacoco.outputDirectory=target/site/jacoco-e2e || true
+                        else
+                        echo "WARN: jacoco-e2e.exec missing — falling back to target/jacoco.exec if present"
+                        if [ -f target/jacoco.exec ]; then
+                            mvn -q -DskipTests org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
+                            -Djacoco.dataFile=target/jacoco.exec \
+                            -Djacoco.outputDirectory=target/site/jacoco-e2e || true
+                        fi
+                    fi
+                    
                     echo "target contents:" && ls -lah target || true
                     [ -f target/jacoco-e2e.exec ] || echo "WARN: jacoco-e2e.exec missing"
 
