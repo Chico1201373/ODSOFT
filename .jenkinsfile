@@ -67,8 +67,7 @@ pipeline {
             environment {
                 JACOCO_VERSION = '0.8.10'
                 APP_PORT = '8081'
-                DESTFILE = "${WORKSPACE}/target/jacoco-e2e.exec"
-
+                
                 AGENT_JAR  = "${HOME}/.m2/repository/org/jacoco/org.jacoco.agent/${JACOCO_VERSION}/org.jacoco.agent-${JACOCO_VERSION}-runtime.jar"
                 DESTFILE   = "${WORKSPACE}/target/jacoco-e2e.exec"
             }
