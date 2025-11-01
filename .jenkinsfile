@@ -67,21 +67,23 @@ pipeline {
             environment {
                 JACOCO_VERSION = '0.8.11'
                 JACOCO_AGENT   = "${WORKSPACE}/.m2/repository/org/jacoco/org.jacoco.agent/${JACOCO_VERSION}/org.jacoco.agent-${JACOCO_VERSION}-runtime.jar"
-                APP_PORT       = '8081' 
-                HEALTH_URL     = "http://localhost:${APP_PORT}/actuator/health" 
+                APP_PORT       = '8081'
             }
             steps {
                 sh '''
                     set -e
 
-                    nohup java -javaagent:"${JACOCO_AGENT}=destfile=target/jacoco-e2e.exec,append=true" \
+                    nohup java -javaagent:"${JACOCO_AGENT}=destfile=target/jacoco-e2e.exec,append=true,output=file" \
                         -jar target/psoft-g1-0.0.1-SNAPSHOT.jar > app.log 2>&1 & echo $! > app.pid
 
-                    mkdir -p reports/junit
+                    mkdir -p reports/junit reports/newman
                     set +e
-                    npx -y newman run "Docs/Psoft-G1.postman_collection.json" \
+                    npx -y -p newman -p newman-reporter-htmlextra \
+                        newman run "Docs/Psoft-G1.postman_collection.json" \
                         -e "Docs/Psoft-G1.postman_environment.json" \
-                        --reporters junit --reporter-junit-export reports/junit/newman-e2e.xml
+                        --reporters cli,junit,htmlextra \
+                        --reporter-junit-export reports/junit/newman-e2e.xml \
+                        --reporter-htmlextra-export reports/newman/newman-e2e.html
                     NEWMAN_RC=$?
                     set -e
                     echo $NEWMAN_RC > newman.rc
@@ -89,9 +91,12 @@ pipeline {
             }
             post {
                 always {
-                sh '''
+                    sh '''
                     set +e
                     [ -f app.pid ] && kill $(cat app.pid) 2>/dev/null || true
+
+                    echo "target contents:" && ls -lah target || true
+                    [ -f target/jacoco-e2e.exec ] || echo "WARN: jacoco-e2e.exec missing"
 
                     # Rapport JaCoCo E2E (XML pour Jenkins Coverage)
                     mvn -q -DskipTests org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
@@ -115,7 +120,6 @@ pipeline {
                     )
 
                     archiveArtifacts artifacts: 'app.log, target/jacoco-e2e.exec, target/site/jacoco-e2e/jacoco.xml, newman.rc', allowEmptyArchive: true
-
                 }
             }
         }
