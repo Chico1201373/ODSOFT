@@ -128,8 +128,11 @@ pipeline {
                         # Generate JaCoCo XML report only if exec file exists and is not empty
                         if [ -s "${DESTFILE}" ]; then
                         mvn -DskipTests org.jacoco:jacoco-maven-plugin:${JACOCO_VERSION}:report \
-                            -Djacoco.dataFile="${DESTFILE}" \
-                            -Djacoco.outputDirectory=target/site/jacoco-e2e || true
+                            -Djacoco.dataFile="${DESTFILE}" 
+                        mkdir -p target/site/jacoco-e2e
+                        if [ -f target/site/jacoco/jacoco.xml ]; then
+                            cp target/site/jacoco/jacoco.xml target/site/jacoco-e2e/jacoco.xml
+                        fi
                         else
                         echo "WARNING: ${DESTFILE} missing or empty, skipping report generation"
                         fi
@@ -138,7 +141,7 @@ pipeline {
                     catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
                         junit testResults: 'reports/junit/newman-e2e.xml', keepLongStdio: true
                     }
-                    
+
                     recordCoverage(
                         tools: [[parser: 'JACOCO', pattern: 'target/site/jacoco-e2e/jacoco.xml']],
                         id: 'jacoco-e2e',
@@ -146,7 +149,7 @@ pipeline {
                         sourceCodeRetention: 'LAST_BUILD',
                         sourceDirectories: [[path: 'src/main/java'], [path: 'target/generated-sources/annotations']]
                     )
-                    archiveArtifacts artifacts: 'app.log, reports/newman/*.html, reports/junit/*.xml, newman.rc, target/*.exec, target/site/jacoco-e2e/jacoco.xml', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'reports/newman/*.html, reports/junit/*.xml , allowEmptyArchive: true'
                 }
             }
         }
