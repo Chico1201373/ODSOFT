@@ -26,10 +26,10 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 @SpringBootTest(classes = {
     pt.psoft.g1.psoftg1.externalapimanagement.service.ExternalApiServiceImpl.class,
     pt.psoft.g1.psoftg1.externalapimanagement.model.GoogleIsbnImplement.class,
-    ExternalApiServiceGoogleWhiteBoxTest.TestConfig.class
+    ExternalApiServiceGoogleWhiteBoxTest_IT.TestConfig.class
 })
 @ActiveProfiles("googlebook")
-class ExternalApiServiceGoogleWhiteBoxTest {
+class ExternalApiServiceGoogleWhiteBoxTest_IT {
 
     @TestConfiguration
     static class TestConfig {

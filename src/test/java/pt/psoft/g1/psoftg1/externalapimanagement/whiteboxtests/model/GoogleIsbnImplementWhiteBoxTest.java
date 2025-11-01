@@ -1,7 +1,24 @@
 package pt.psoft.g1.psoftg1.externalapimanagement.whiteboxtests.model;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestTemplate;
+
+import pt.psoft.g1.psoftg1.externalapimanagement.model.GoogleIsbnImplement;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.client.ExpectedCount.once;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.hamcrest.Matchers.*;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -9,91 +26,58 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.RestTemplate;
-import pt.psoft.g1.psoftg1.externalapimanagement.model.GoogleIsbnImplement;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
-import static org.springframework.test.web.client.ExpectedCount.once;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
-@ExtendWith(SpringExtension.class)
-@SpringBootTest(classes = {GoogleIsbnImplement.class, GoogleIsbnImplementWhiteBoxTest.TestConfig.class})
-@ActiveProfiles("googlebook")
 class GoogleIsbnImplementWhiteBoxTest {
+    private static final String GOOGLE_BOOKS_URL = "https://www.googleapis.com/books/v1/volumes";
 
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        public RestTemplate restTemplate() {
-            return new RestTemplate();
-        }
-    }
+    private void runIsbnScenario(GoogleIsbnImplement impl, String title, String json, String expectedIsbn) {
+        MockRestServiceServer server = MockRestServiceServer.createServer(
+                (RestTemplate) ReflectionTestUtils.getField(impl, "restTemplate"));
+        server.expect(once(), requestTo(containsString("intitle:" + title.replace(" ", "%20"))))
+                .andRespond(json != null ? withSuccess(json, MediaType.APPLICATION_JSON) : withServerError());
 
-    @Autowired
-    private RestTemplate restTemplate;
-
-    @Autowired
-    private GoogleIsbnImplement impl;
-
-    private MockRestServiceServer server;
-
-    @BeforeEach
-    void setUp() {
-        server = MockRestServiceServer.createServer(restTemplate);
+        String isbn = impl.getIsbn(title);
+        assertThat(isbn, is(expectedIsbn));
+        server.verify();
     }
 
     @Test
     void getIsbn_returnsIsbn13WhenPresent() {
-        String json = "{" +
-                "\"items\": [ { \"volumeInfo\": { \"industryIdentifiers\": [ { \"type\": \"ISBN_13\", \"identifier\": \"9781234567897\" } ] } } ] }";
+        GoogleIsbnImplement impl = new GoogleIsbnImplement(new RestTemplate());
+        ReflectionTestUtils.setField(impl, "googleBooksUrl", GOOGLE_BOOKS_URL);
+        ReflectionTestUtils.setField(impl, "apiKey", "MY_KEY");
 
-        server.expect(once(), requestTo(org.hamcrest.Matchers.containsString("intitle:Test%20Title")))
-                .andRespond(withSuccess(json, org.springframework.http.MediaType.APPLICATION_JSON));
-
-        String isbn = impl.getIsbn("Test Title");
-
-        assertThat(isbn, is("9781234567897"));
-        server.verify();
+        String json = "{\"items\": [{\"volumeInfo\": {\"industryIdentifiers\": [{\"type\": \"ISBN_13\", \"identifier\": \"9781234567897\"}]}}]}";
+        runIsbnScenario(impl, "Test Title", json, "9781234567897");
     }
 
     @Test
     void getIsbn_fallsBackToIsbn10WhenIsbn13Missing() {
-        String json = "{" +
-                "\"items\": [ { \"volumeInfo\": { \"industryIdentifiers\": [ { \"type\": \"ISBN_10\", \"identifier\": \"1234567890\" } ] } } ] }";
+        GoogleIsbnImplement impl = new GoogleIsbnImplement(new RestTemplate());
+        ReflectionTestUtils.setField(impl, "googleBooksUrl", GOOGLE_BOOKS_URL);
+        ReflectionTestUtils.setField(impl, "apiKey", "");
 
-        server.expect(once(), requestTo(org.hamcrest.Matchers.containsString("intitle:Other%20Title")))
-                .andRespond(withSuccess(json, org.springframework.http.MediaType.APPLICATION_JSON));
-
-        String isbn = impl.getIsbn("Other Title");
-
-        assertThat(isbn, is("1234567890"));
-        server.verify();
+        String json = "{\"items\": [{\"volumeInfo\": {\"industryIdentifiers\": [{\"type\": \"ISBN_10\", \"identifier\": \"1234567890\"}]}}]}";
+        runIsbnScenario(impl, "Other", json, "1234567890");
     }
 
     @Test
-    void getIsbn_returnsNullWhenNoItemsOrNulls() {
-        String json = "{ \"items\": [] }";
+    void getIsbn_returnsNullWhenNoItems() {
+        GoogleIsbnImplement impl = new GoogleIsbnImplement(new RestTemplate());
+        ReflectionTestUtils.setField(impl, "googleBooksUrl", GOOGLE_BOOKS_URL);
+        ReflectionTestUtils.setField(impl, "apiKey", "");
 
-        server.expect(once(), requestTo(org.hamcrest.Matchers.containsString("intitle:NoResponse")))
-                .andRespond(withSuccess(json, org.springframework.http.MediaType.APPLICATION_JSON));
-
-        String isbn = impl.getIsbn("NoResponse");
-        assertThat(isbn, is(nullValue()));
-        server.verify();
+        String json = "{\"items\": []}";
+        runIsbnScenario(impl, "NoItems", json, null);
     }
 
     @Test
-    void getIsbn_handlesExceptionAndReturnsNull() {
-        server.expect(once(), requestTo(org.hamcrest.Matchers.containsString("intitle:Boom")))
-                .andRespond(withServerError());
+    void getIsbn_returnsNullWhenServerError() {
+        GoogleIsbnImplement impl = new GoogleIsbnImplement(new RestTemplate());
+        ReflectionTestUtils.setField(impl, "googleBooksUrl", GOOGLE_BOOKS_URL);
+        ReflectionTestUtils.setField(impl, "apiKey", "");
 
-        String isbn = impl.getIsbn("Boom");
-        assertThat(isbn, is(nullValue()));
-        server.verify();
+        runIsbnScenario(impl, "Boom", null, null);
     }
 }
